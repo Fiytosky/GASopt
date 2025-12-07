@@ -413,6 +413,10 @@ Options:\n\
   fprintf (stream, _("\
   @FILE                   read options from FILE\n"));
 
+  // fiytosky, add
+  fprintf (stream, _("\
+  --fiy-dlabel            fiytosky add: dump label of data ind .text secion\n"));
+
   md_show_usage (stream);
 
   fputc ('\n', stream);
@@ -505,9 +509,11 @@ parse_args (int * pargc, char *** pargv)
       OPTION_SFRAME,
       OPTION_SCFI,
       OPTION_INFO,
-      OPTION_NOINFO
+      OPTION_NOINFO,
     /* When you add options here, check that they do
        not collide with OPTION_MD_BASE.  See as.h.  */
+      // fiytosky, add 
+      OPTION_FIY_DLABEL /* 打印嵌入数据标签 */
     };
 
   static const struct option std_longopts[] =
@@ -593,6 +599,7 @@ parse_args (int * pargc, char *** pargv)
     ,{"info", no_argument, NULL, OPTION_INFO}
     ,{"warn", no_argument, NULL, OPTION_WARN}
     ,{"multibyte-handling", required_argument, NULL, OPTION_MULTIBYTE_HANDLING}
+    ,{"fiy-dlabel", no_argument, NULL, OPTION_FIY_DLABEL} /* fiytosky, add */
   };
 
   /* Construct the option lists from the standard list and the target
@@ -971,6 +978,11 @@ This program has absolutely no warranty.\n"));
 	  flag_no_information = false;
 	  break;
 
+  // fiytosky, add
+  case OPTION_FIY_DLABEL:
+    fiy_dlabel = true;
+    break;
+
 #if defined OBJ_ELF || defined OBJ_MAYBE_ELF
 	case OPTION_EXECSTACK:
 	  flag_execstack = 1;
@@ -1306,6 +1318,8 @@ gas_init (void)
   expr_begin ();
   eh_begin ();
 
+  // fiytosky, add
+  data_label_begin ();
   macro_init ();
 
   dwarf2_init ();

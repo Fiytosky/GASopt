@@ -29,6 +29,10 @@ extern symbolS *symbol_lastP;	/* last struct symbol we made, or NULL */
 extern symbolS abs_symbol;
 extern symbolS dot_symbol;
 
+// fiytosky, add
+extern dlabelS *data_rootP;
+extern dlabelS *data_lastP;
+
 extern int symbol_table_frozen;
 
 /* This is non-zero if symbols are case sensitive, which is the
@@ -124,6 +128,13 @@ extern void S_SET_THREAD_LOCAL (symbolS *);
 extern void S_SET_VOLATILE (symbolS *);
 extern void S_CLEAR_VOLATILE (symbolS *);
 extern void S_SET_FORWARD_REF (symbolS *);
+
+// fiytosky, add
+const char* fiy_test_symbol (symbolS *);
+void store_labels_for_xom (symbolS *, symbolS *);
+void data_label_begin (void);
+dlabelS *data_label_next (dlabelS *);
+symbolS *data_label_node (dlabelS *);
 
 #ifndef WORKING_DOT_WORD
 struct broken_word

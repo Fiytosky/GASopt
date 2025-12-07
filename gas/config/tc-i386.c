@@ -197,6 +197,9 @@ static void s_bss (int);
 #ifdef OBJ_ELF
 static void handle_large_common (int small ATTRIBUTE_UNUSED);
 
+// fiytosky, add
+static void collect_labels (void);
+
 /* GNU_PROPERTY_X86_ISA_1_USED.  */
 static unsigned int x86_isa_1_used;
 /* GNU_PROPERTY_X86_FEATURE_2_USED.  */
@@ -7492,6 +7495,11 @@ i386_assemble (char *line)
 
   insert_lfence_before (last_insn);
 
+  // fiytosky, add 在汇编之前收集用于访存的label
+  if (fiy_dlabel) {
+    collect_labels ();
+  }
+
   /* We are ready to output the insn.  */
   output_insn (last_insn);
 
@@ -12149,6 +12157,38 @@ add_branch_padding_frag_p (enum align_branch_kind *branch_p,
     }
 
   return add_padding;
+}
+
+// fiytosky, add 收集访存label
+static void 
+collect_labels (void)
+{
+  if (!(i.tm.opcode_modifier.jump == JUMP
+       || i.tm.opcode_modifier.jump == JUMP_BYTE
+       || i.tm.opcode_modifier.jump == JUMP_DWORD))
+  {
+    /* fiytosky: 只处理非跳转情况 */
+    unsigned int n;
+
+    for (n = 0; n < i.operands; n++)
+    {
+      if (operand_type_check (i.types[n], disp)) {
+        if (i.op[n].disps->X_op == O_symbol) {
+          symbolS *symp = i.op[n].disps->X_add_symbol;
+          symbolS *symp2 = i.op[n].disps->X_op_symbol; // fiytosky: 大概率不会被使用，但是也检查一下
+
+          store_labels_for_xom (symp, symp2); // fiytosky: define in symbol.c
+        }
+      } else if (operand_type_check (i.types[n], imm)) {
+        if (i.op[n].imms->X_op == O_symbol) {
+          symbolS *symp = i.op[n].imms->X_add_symbol;
+          symbolS *symp2 = i.op[n].imms->X_op_symbol;
+
+          store_labels_for_xom (symp, symp2);
+        }
+      }
+    }
+  }
 }
 
 static void

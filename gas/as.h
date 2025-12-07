@@ -330,6 +330,9 @@ COMMON bool flag_no_information; /* --no-info */
    are detected.  */
 COMMON unsigned char flag_always_generate_output; /* -Z */
 
+/* fiytosky, add. 打印代码段中嵌入数据标签*/
+COMMON bool fiy_dlabel;
+
 enum synth_cfi_type
 {
   SYNTH_CFI_NONE = 0,
@@ -549,6 +552,9 @@ struct expressionS;
 struct fix;
 typedef struct symbol symbolS;
 typedef struct frag fragS;
+
+// fiytosky, add 收集访存label
+typedef struct data_label dlabelS;
 
 /* literal.c */
 valueT add_to_literal_pool (symbolS *, valueT, segT, int);

@@ -177,6 +177,100 @@ typedef union symbol_entry
   struct symbol sy;
 } symbol_entry_t;
 
+// fiytosky, add **begin**定义一个node构造访存label链表
+struct data_label
+{
+  struct symbol * node;
+  /* Forwards and backwards chain pointers.  */
+  struct data_label *next;
+  struct data_label *prev;
+};
+
+// typedef struct data_label* dlabelS;
+
+dlabelS *data_rootP;
+dlabelS *data_lastP;
+
+void data_label_begin (void); // called by as.c
+dlabelS *data_label_next (dlabelS *);
+symbolS *data_label_node (dlabelS *);
+static dlabelS * data_label_create (symbolS *);
+static void data_label_append (symbolS *);
+static void verify_data_label_chain (void);
+
+void
+data_label_begin (void)
+{
+  data_rootP = NULL;
+  data_lastP = NULL;
+}
+
+dlabelS *
+data_label_next (dlabelS *ln)
+{
+  return ln->next;
+}
+
+symbolS *
+data_label_node (dlabelS *ln)
+{
+  return ln->node;
+}
+
+static dlabelS *
+data_label_create (symbolS *node)
+{
+  size_t size;
+  size = sizeof (struct data_label);
+
+  dlabelS *lnode;
+  lnode = notes_alloc (size);
+
+  memset (lnode, 0, size);
+  lnode->node = node;
+  lnode->next = NULL;
+  lnode->prev = NULL;
+
+  return lnode;
+}
+
+static void 
+data_label_append (symbolS *node)
+{
+  dlabelS *target = data_label_create (node);
+
+  if (data_rootP == NULL) {
+    data_rootP = target;
+    data_lastP = target;
+  } else {
+    data_lastP->next = target;
+    data_lastP->next->prev = data_lastP;
+    data_lastP = target;
+  } 
+  
+  verify_data_label_chain ();
+}
+
+static void
+verify_data_label_chain ()
+{
+  if (data_rootP == NULL)
+    return;
+
+  dlabelS *tra = data_rootP;
+
+  for (; tra != NULL; tra = tra->next)
+    {
+      gas_assert (tra->node != NULL);
+      if (tra->next == NULL) {
+        gas_assert (tra == data_lastP);         
+      } else {
+        gas_assert (tra->next->prev == tra); 
+      }
+    }
+}
+// fiytosky, add **end**定义一个node构造访存label链表
+
 /* Hash function for a symbol_entry.  */
 
 static hashval_t
@@ -1273,6 +1367,36 @@ report_op_error (symbolS *symp, symbolS *left, operatorT op, symbolS *right)
 		seg_right->name, opname, sname);
     }
 }
+
+// fiytosky, add
+const char*
+fiy_test_symbol (symbolS *symp) {
+  // printf("fiy test symbol name: %s\n", symp->name);
+  return symp->name;
+}
+
+// fiytosky, add **begin** 收集访存label
+// 此时label信息不全，因此访存label可能也位于data段，需要后续筛选
+void 
+store_labels_for_xom (symbolS * X_add_symbol, symbolS * X_op_symbol)
+{
+  if (X_add_symbol) {
+    if (X_add_symbol->flags.local_symbol) {
+      // struct local_symbol *locsym = (struct local_symbol *) X_add_symbol;
+      // printf("store_labels x_add_symbol: %s flags: %s\n", locsym->name, locsym->section->name);
+      data_label_append (X_add_symbol);
+    }
+  }
+
+  if (X_op_symbol) {
+    if (X_op_symbol->flags.local_symbol) {
+      // struct local_symbol *locsym = (struct local_symbol *) X_op_symbol;
+      // printf("store_labels x_add_symbol: %s\n", locsym->name);
+      data_label_append (X_op_symbol);
+    }
+  }
+}
+// fiytosky, add **end** 收集访存label
 
 /* Resolve the value of a symbol.  This is called during the final
    pass over the symbol table to resolve any symbols with complex

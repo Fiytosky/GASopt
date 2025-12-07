@@ -2132,6 +2132,139 @@ maybe_generate_build_notes (void)
 }
 #endif /* OBJ_ELF */
 
+// fiytosky, add **begin** 剥离嵌入数据
+static void split_embedded_data (void);
+static void fix_data_label_info (void);
+// dump information
+static void reverse_data_labels (void);
+
+static void
+split_embedded_data (void)
+{	
+	return;
+	if (data_rootP == NULL) {
+		printf("data_rootP is null\n");
+		return;
+	}
+
+	segment_info_type *info;
+	segment_info_type *data_info;
+	fragS *f = NULL;
+	fragS *fprev = NULL;
+	fragS *fprev2 = NULL;
+
+	fragS *target_root = NULL; 
+	fragS *target_last = NULL;
+
+	info = seg_info (text_section);
+	data_info = seg_info (data_section);
+	f = info->frchainP->frch_root;
+
+	dlabelS *tra = data_rootP;
+	// 该代码还基于一个假设：先出现的label的frag也是先创建的
+	for (; tra != NULL; tra = data_label_next (tra))
+    {
+    //   const char* name = fiy_test_symbol (data_label_node (tra));
+	//   printf("embedded_label: %s\n", name);
+		symbolS *symp = data_label_node (tra);
+		// gas_assert (symp->flags.local_symbol);
+		// struct local_symbol *locsym = (struct local_symbol *) symp;
+
+		if (!subseg_text_p (S_GET_SEGMENT (symp))) {
+			continue; /* 只处理text段中的符号 */
+		}
+
+		while (f && f != symbol_get_frag (symp)) {
+			fprev2 = fprev;
+			fprev = f;
+			f = f->fr_next;
+		}
+		
+		if (f == NULL) {
+			as_warn ("f become NULL before tra");
+			break; 
+		}
+
+		// find a embedded_data frag f == locsym->frag
+		// gas_assert (f->fr_type == rs_fill || f->fr_type == rs_fill_nop);
+		
+		printf("fprev->fr_fix: 0x%lx\n", fprev->fr_fix);
+		if (!fprev->fr_fix) {
+			gas_assert (fprev->fr_offset > 0);
+
+			fragS *cur = f;
+			f = f->fr_next;
+
+			if (target_root == NULL) {
+				target_root = fprev;
+				target_last = cur;
+
+				fprev2->fr_next = cur->fr_next;
+			} else {
+				target_last->fr_next = fprev;
+				target_last = cur;
+
+				fprev2->fr_next = cur->fr_next;
+			}
+			// fprev2->fr_next = cur->fr_next;
+			// f->fr_next = data_info->frchainP->frch_root;
+			// data_info->frchainP->frch_root = fprev;
+		} else {
+			fragS *cur = f;
+			f = f->fr_next;
+
+			if (target_root == NULL) {
+				target_root = cur;
+				target_last = cur;
+
+				fprev->fr_next = cur->fr_next;
+			} else {
+				target_last->fr_next = cur;
+				target_last = cur;
+
+				fprev->fr_next = cur->fr_next;
+			}
+			// fprev->fr_next = f->fr_next;
+			// f->fr_next = data_info->frchainP->frch_root;
+			// data_info->frchainP->frch_root = f;
+		}
+    }
+
+	target_last->fr_next = data_info->frchainP->frch_root;
+	data_info->frchainP->frch_root = target_root;
+
+	printf("splite embedded data success!\n");
+}
+
+static void
+fix_data_label_info (void)
+{
+	// if (data_rootP == NULL) {
+	// 	printf("data_rootP is null\n");
+	// 	return;
+	// }
+
+	return;
+}
+
+// find embedded data label in .text
+static void 
+reverse_data_labels (void)
+{
+	dlabelS *tra = data_rootP;
+
+	for (; tra != NULL; tra = data_label_next (tra)) {
+		symbolS *symp = data_label_node (tra);
+
+		const char* sym_name = fiy_test_symbol (symp);
+
+		if (subseg_text_p (S_GET_SEGMENT (symp))) {
+			as_warn (_("[embedded data label] %s"), sym_name);
+		}
+	}
+}
+// fiytosky, add **end** 剥离嵌入数据
+
 /* Write the object file.  */
 
 void
@@ -2151,6 +2284,11 @@ write_object_file (void)
 #ifdef md_pre_relax_hook
   md_pre_relax_hook;
 #endif
+
+  // fiytosky, add
+  if (fiy_dlabel) {
+	reverse_data_labels ();
+  }
 
   /* From now on, we don't care about sub-segments.  Build one frag chain
      for each segment. Linked through fr_next.  */
@@ -2175,6 +2313,12 @@ write_object_file (void)
     {
       merge_data_into_text ();
     }
+
+  // fiytosky, add 在此处剥离嵌入数据frag
+  if (fiy_dlabel) {
+	split_embedded_data ();
+    fix_data_label_info ();
+  }
 
   rsi.pass = 0;
   while (1)
