@@ -46,6 +46,7 @@
 #include "bfdver.h"
 #include "write.h"
 #include "ginsn.h"
+#include "bbInfoHandle.h" /* fiytosky, add */
 
 #ifdef HAVE_ITBL_CPU
 #include "itbl-ops.h"
@@ -1320,6 +1321,8 @@ gas_init (void)
 
   // fiytosky, add
   data_label_begin ();
+  bbinfo_init ();
+
   macro_init ();
 
   dwarf2_init ();
