@@ -36,40 +36,56 @@ const char* symbol_blacklist[] = {
 };
 
 // init the global variables
-void bbinfo_init(){
+void bbinfo_init() {
   as_warn (_("[bbinfo initialize]"));
   return;
 }
 
 // handle bbinfo_jmptbl directive
 void jmptable_bbInfo_handler(int ignored ATTRIBUTE_UNUSED){
-    return; 
+	offsetT table_size, entry_size;
+	table_size = get_absolute_expression();
+	SKIP_WHITESPACE();
+
+	entry_size = get_absolute_expression();
+	// as_warn (_("[handle .bbinfo_jmptbl]"));
+  return; 
 }
 
 // handle bbinfo_funcb directive, it represents function begin
 void funcb_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
-    return;
+  // as_warn (_("[handle .bbinfo_funb]"));
+  return; 
 }
 
 // handle bbinfo_funce directive, it represents function end
 void funce_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
-    return;
+  // as_warn (_("[handle .bbinfo_fune]"));
+  return; 
 }
 
 // handle bbinfo_bb directive, it represents basic block begin
 void bb_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
-    return;
+  offsetT fall_through;
+	fall_through = get_absolute_expression();
+	// as_warn (_("[handle .bbinfo_bb %d]"), fall_through);
+  return; 
 }
 
 // handle bbinfo_be directive, it represents basic block end
 void be_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
-    return;
+	offsetT fall_through;
+	fall_through = get_absolute_expression();
+	// as_warn (_("[handle .bbinfo_be %d]"), fall_through);
+  return; 
 }
 
 void inlineb_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
-    return;
+  // as_warn (_("[handle .bbinfo_inlineb]"));
+  return; 
 }
 
 void inlinee_bbInfo_handler (int ignored ATTRIBUTE_UNUSED){
-    return;
+  // as_warn (_("[handle .bbinfo_inlinee]"));
+  return;
 }

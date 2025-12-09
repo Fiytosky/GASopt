@@ -46,6 +46,8 @@
 
 #include <limits.h>
 
+#include "bbInfoHandle.h" /* fiytosky, add */
+
 #ifndef TC_START_LABEL
 #define TC_START_LABEL(STR, NUL_CHAR, NEXT_CHAR) (NEXT_CHAR == ':')
 #endif
@@ -603,6 +605,11 @@ pop_insert (const pseudo_typeS *table)
 #define scfi_pop_insert()	pop_insert(scfi_pseudo_table)
 #endif
 
+// fiytosky, add. handle custom pseudo
+#ifndef bbInfo_pop_insert
+#define bbInfo_pop_insert() pop_insert(bbInfo_pseudo_table)
+#endif
+
 static void
 pobegin (void)
 {
@@ -635,6 +642,10 @@ pobegin (void)
       pop_table_name = "cfi";
       cfi_pop_insert ();
     }
+
+  // fiytosky, add
+  pop_table_name = "bbInfo";
+  bbInfo_pop_insert();
 }
 
 static void
