@@ -131,6 +131,7 @@ extern void S_SET_FORWARD_REF (symbolS *);
 
 // fiytosky, add
 const char* fiy_test_symbol (symbolS *);
+const char* fiy_func_name (symbolS *);
 void store_labels_for_xom (symbolS *, symbolS *);
 void data_label_begin (void);
 dlabelS *data_label_next (dlabelS *);

@@ -1375,6 +1375,11 @@ fiy_test_symbol (symbolS *symp) {
   return symp->name;
 }
 
+const char* 
+fiy_func_name (symbolS *sym) {
+  return sym->bsym->name;
+}
+
 // fiytosky, add **begin** 收集访存label
 // 此时label信息不全，因此访存label可能也位于data段，需要后续筛选
 void 

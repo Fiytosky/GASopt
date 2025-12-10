@@ -38,6 +38,8 @@
 #include "opcodes/i386-mnem.h"
 #include <limits.h>
 
+#include "bbInfoHandle.h" /* fiytosky, add */
+
 #ifndef INFER_ADDR_PREFIX
 #define INFER_ADDR_PREFIX 1
 #endif
@@ -8446,6 +8448,11 @@ optimize_disp (const insn_template *t)
 	    fix_new_exp (frag_now, frag_more (0) - frag_now->fr_literal, 0,
 			 i.op[op].disps, 0, i.reloc[op]);
 	    i.types[op] = operand_type_and_not (i.types[op], anydisp);
+
+      // fiytosky, add
+      if (mbbs_list_tail) {
+        mbbs_list_tail->num_fixs++;
+      }
 	  }
  	else
 	  /* We only support 64bit displacement on constants.  */
@@ -11596,6 +11603,11 @@ output_jump (void)
   fixP = fix_new_exp (frag_now, p - frag_now->fr_literal, size,
 		      i.op[0].disps, 1, jump_reloc);
 
+  // fiytosky, add
+  if (mbbs_list_tail) {
+    mbbs_list_tail->num_fixs++;
+  }
+
   /* All jumps handled here are signed, but don't unconditionally use a
      signed limit check for 32 and 16 bit jumps as we want to allow wrap
      around at 4G (outside of 64-bit mode) and 64k (except for XBEGIN)
@@ -11676,16 +11688,28 @@ output_interseg_jump (void)
 	}
       md_number_to_chars (p, n, size);
     }
-  else
+  else {
     fix_new_exp (frag_now, p - frag_now->fr_literal, size,
 		 i.op[1].imms, 0, reloc (size, 0, 0, i.reloc[1]));
+
+    // fiytosky, add
+    if (mbbs_list_tail) {
+      mbbs_list_tail->num_fixs++;
+    }
+  }
 
   p += size;
   if (i.op[0].imms->X_op == O_constant)
     md_number_to_chars (p, (valueT) i.op[0].imms->X_add_number, 2);
-  else
+  else {
     fix_new_exp (frag_now, p - frag_now->fr_literal, 2,
 		 i.op[0].imms, 0, reloc (2, 0, 0, i.reloc[0]));
+
+    // fiytosky, add
+    if (mbbs_list_tail) {
+      mbbs_list_tail->num_fixs++;
+    }
+  }
 }
 
 /* Hook used to reject pseudo-prefixes misplaced at the start of a line.  */
@@ -12323,6 +12347,51 @@ output_insn (const struct last_insn *last_insn)
   insn_start_frag = frag_now;
   insn_start_off = frag_now_fix ();
 
+  // fiytosky, add. update the basic block offset in current/last frag
+  // 仅仅记录新基本快的起始地址和对应的frag, 即insn_start_off和insn_start_frag
+  insn_start_frag->last_bb = mbbs_list_tail;
+  if (mbbs_list_tail && mbbs_list_tail->is_begin) {
+    mbbs_list_tail->is_begin = 0;
+    mbbs_list_tail->offset = insn_start_off;
+    mbbs_list_tail->parent_frag = insn_start_frag;
+
+    if (bbinfo_app) {
+      mbbs_list_tail->is_inline = 1;
+    }
+  }
+
+  // handle handwritten file
+  if (bbinfo_handwritten_file) {
+    if (!mbbs_list_tail) {
+      bbinfo_initbb_handwritten ();
+      mbbs_list_tail->is_begin = 0;
+      mbbs_list_tail->offset = insn_start_off;
+      mbbs_list_tail->parent_frag = insn_start_frag;
+      bbinfo_last_frag = insn_start_frag;
+      insn_start_frag->last_bb = mbbs_list_tail;
+    } 
+    // 根据汇编器产生的frag被动创建基本快，基本快的创建逻辑就是frag的创建逻辑.
+    // bbinfo_last_inst_offset + bbinfo_last_inst_size的组合也解决了padding的创建不一定会
+    // 引入新frag的问题. 这样产生的基本块不会包含padding
+    else if (bbinfo_last_frag != insn_start_frag ||
+            (bbinfo_last_inst_offset + bbinfo_last_inst_size) != insn_start_off) {
+      bbinfo_initbb_handwritten();
+      mbbs_list_tail->is_begin = 0;
+      mbbs_list_tail->offset = insn_start_off;
+      mbbs_list_tail->parent_frag = insn_start_frag;
+      insn_start_frag->last_bb = mbbs_list_tail;
+      bbinfo_last_frag = insn_start_frag;
+    }
+
+    bbinfo_last_inst_offset = insn_start_off;
+  }
+
+  // 如果发生了Macro-fusion优化，无论是否是否产生了新的frag, 实际填充的
+  // 字节frag_more(0)为0，该padding不影响insn_size的计算。
+
+  // 如下条件判断不是针对Macro-fusion优化的，而是针对另一种branch优化：
+  // Branch Alignment, 特别是为了缓解硬件缺陷如 (Intel JCC Erratum)或
+  // 优化取指性能，对应参数-malign-branch-boundary、 -mbranches-within-32B-boundaries
   if (add_branch_padding_frag_p (&branch, &mf_jcc, last_insn))
     {
       char *p;
@@ -12347,6 +12416,12 @@ output_insn (const struct last_insn *last_insn)
       fragP->tc_frag_data.mf_type = mf_jcc;
       fragP->tc_frag_data.branch_type = branch;
       fragP->tc_frag_data.max_bytes = max_branch_padding_size;
+
+      // fiytosky, add. 如果产生了新的frag，将该frag关联当前基本快
+      // padding当前没有实际写入字节，不更新basic block size
+      if (insn_start_frag != frag_now) {
+        fragP->last_bb = mbbs_list_tail;
+      }
     }
 
   if (!cpu_arch_flags.bitfield.cpui386 && (flag_code != CODE_16BIT)
@@ -12390,6 +12465,35 @@ output_insn (const struct last_insn *last_insn)
 
 	      p = frag_more (5);
 	      md_number_to_chars (p, val, 5);
+
+        // fiytosky, add
+        // 获取insn size, 基本块的大小有可能在之后的阶段发生改变
+        offsetT insn_size = 0;
+        if (insn_start_frag == frag_now) {
+          insn_size = frag_now_fix () - insn_start_off;
+        } else {
+          insn_size = insn_start_frag->fr_fix - insn_start_off;
+          fragS* frag_tmp = NULL;
+          // 指令可能跨frag
+          for (frag_tmp = insn_start_frag->fr_next;
+              frag_tmp && frag_tmp != frag_now;
+              frag_tmp = frag_tmp->fr_next) {
+            insn_size += frag_tmp->fr_fix;
+            frag_tmp->last_bb = mbbs_list_tail;
+          }
+          insn_size += frag_now_fix ();
+          frag_now->last_bb = mbbs_list_tail;
+        }
+
+        // 更新basic block size
+        if (mbbs_list_tail) {
+          mbbs_list_tail->size += (unsigned int)insn_size;
+        }
+
+        // bbinfo_last_insn_size可能不是精确的insn size
+        if (bbinfo_handwritten_file) {
+          bbinfo_last_inst_size = (unsigned int)insn_size;
+        }
 	    }
 	  else
 	    abs_section_offset += 5;
@@ -12411,6 +12515,7 @@ output_insn (const struct last_insn *last_insn)
 	;
       else if (add_fused_jcc_padding_frag_p (&mf_cmp, last_insn))
 	{
+    // Macro-Fusion优化处理
 	  /* Make room for padding.  */
 	  frag_grow (MAX_FUSED_JCC_PADDING_SIZE);
 	  p = frag_more (0);
@@ -12424,6 +12529,12 @@ output_insn (const struct last_insn *last_insn)
 	  fragP->tc_frag_data.mf_type = mf_cmp;
 	  fragP->tc_frag_data.branch_type = align_branch_fused;
 	  fragP->tc_frag_data.max_bytes = MAX_FUSED_JCC_PADDING_SIZE;
+
+    // fiytosky, add. 如果产生了新的frag，将该frag关联当前基本快
+    // padding当前没有实际写入字节，不更新basic block size
+    if (insn_start_frag != frag_now) {
+      fragP->last_bb = mbbs_list_tail;
+    }
 	}
       else if (add_branch_prefix_frag_p (last_insn))
 	{
@@ -12440,6 +12551,12 @@ output_insn (const struct last_insn *last_insn)
 		    NULL, 0, p);
 
 	  fragP->tc_frag_data.max_bytes = max_prefix_size;
+
+    // fiytosky, add. 如果产生了新的frag，将该frag关联当前基本快
+    // padding当前没有实际写入字节，不更新basic block size
+    if (insn_start_frag != frag_now) {
+      fragP->last_bb = mbbs_list_tail;
+    }
 	}
 
       /* Since the VEX/EVEX prefix contains the implicit prefix, we
@@ -12716,6 +12833,9 @@ output_insn (const struct last_insn *last_insn)
     {
       /* Terminate each frag so that we can add prefix and check for
          fused jcc.  */
+      // 如果开启了-malign-branch-boundary优化，汇编器会将按指令级别进行切片，
+      // 每个指令对应一个frag。
+      // TODO: 嵌入数据剥离应该可以采取这个思路。
       frag_wane (frag_now);
       frag_new (0);
     }
@@ -12726,6 +12846,35 @@ output_insn (const struct last_insn *last_insn)
       pi ("" /*line*/, &i);
     }
 #endif /* DEBUG386  */
+
+  // fiytosky, add
+  // 更新insn_size
+  offsetT insn_size = 0;
+  if (insn_start_frag == frag_now) {
+    insn_size = frag_now_fix () - insn_start_off;
+  } else {
+    insn_size = insn_start_frag->fr_fix - insn_start_off;
+    fragS* frag_tmp = NULL;
+    // 指令可能跨frag
+    for (frag_tmp = insn_start_frag->fr_next;
+        frag_tmp && frag_tmp != frag_now;
+        frag_tmp = frag_tmp->fr_next) {
+      insn_size += frag_tmp->fr_fix;
+      frag_tmp->last_bb = mbbs_list_tail;
+    }
+    insn_size += frag_now_fix ();
+    frag_now->last_bb = mbbs_list_tail;
+  }
+
+  // 更新basic block size
+  if (mbbs_list_tail) {
+    mbbs_list_tail->size += (unsigned int)insn_size;
+  }
+
+  // bbinfo_last_insn_size可能不是精确的insn size
+  if (bbinfo_handwritten_file) {
+    bbinfo_last_inst_size = (unsigned int)insn_size;
+  }
 }
 
 /* Return the size of the displacement operand N.  */
@@ -12874,6 +13023,12 @@ output_disp (fragS *insn_start_frag, offsetT insn_start_off)
 	      fixP = fix_new_exp (frag_now, p - frag_now->fr_literal,
 				  size, i.op[n].disps, pcrel,
 				  reloc_type);
+
+        // fiytosky, add
+        // 更新basic block's fix number
+        if (mbbs_list_tail) {
+          mbbs_list_tail->num_fixs++;
+        }
 
 	      if (flag_code == CODE_64BIT && size == 4 && pcrel
 		  && !i.prefix[ADDR_PREFIX])
@@ -13058,6 +13213,11 @@ output_imm (fragS *insn_start_frag, offsetT insn_start_off)
 		}
 	      fix_new_exp (frag_now, p - frag_now->fr_literal, size,
 			   i.op[n].imms, 0, reloc_type);
+
+        // fiytosky, add
+        if (mbbs_list_tail) {
+          mbbs_list_tail->num_fixs++;
+        }
 	    }
 	}
     }
@@ -13084,6 +13244,11 @@ x86_cons_fix_new (fragS *frag, unsigned int off, unsigned int len,
 #endif
 
   fix_new_exp (frag, off, len, exp, 0, r);
+
+  // fiytosky, add
+  // if (mbbs_list_tail) {
+  //   mbbs_list_tail->num_fixs++;
+  // }
 }
 
 /* Export the ABI address size for use by TC_ADDRESS_BYTES for the

@@ -101,6 +101,13 @@ struct frag {
   OBJ_FRAG_TYPE obj_frag_data;
 #endif
 
+// fiytosky, add
+  struct basic_block *last_bb; // last basic block in this fragment
+  unsigned int bb_offset; // basic block offset in this fragment
+  offsetT last_bb_added_size; // last basic block may be added
+  offsetT last_bb_added_fix_size; // fr_fix added number
+  asection *parent; // which section it belongs to
+
   /* Data begins here.  */
   char fr_literal[1];
 };

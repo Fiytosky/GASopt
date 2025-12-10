@@ -26,6 +26,8 @@
 #include "dwarf2dbg.h"
 #include "ginsn.h"
 
+#include "bbInfoHandle.h" /* fiytosky, add */
+
 #ifndef ECOFF_DEBUGGING
 #define ECOFF_DEBUGGING 0
 #else
@@ -2379,6 +2381,13 @@ obj_elf_size (int ignore ATTRIBUTE_UNUSED)
   expressionS exp;
   symbolS *sym;
 
+  // fiytosky, add
+  if (bbinfo_handwritten_file) {
+    if (handwritten_bbinfo_func_name && !strcmp(handwritten_bbinfo_func_name, name)) {
+      handwritten_funce_bbinfo_handler();
+    }
+  }
+
   p = input_line_pointer;
   restore_line_pointer (c);
   SKIP_WHITESPACE ();
@@ -2489,8 +2498,17 @@ obj_elf_type (int ignore ATTRIBUTE_UNUSED)
   type = 0;
   if (strcmp (type_name, "function") == 0
       || strcmp (type_name, "2") == 0
-      || strcmp (type_name, "STT_FUNC") == 0)
+      || strcmp (type_name, "STT_FUNC") == 0) {
     type = BSF_FUNCTION;
+
+    // fiytosky, add. function begin
+    if (bbinfo_handwritten_file) {
+      handwritten_funcb_bbinfo_handler();
+      handwritten_bbinfo_func_name = fiy_func_name (sym);
+      as_warn(_("[bbinfo]: DEBUG. Hello, call handwritten_funcb_bbinfo_handler()!, %s"), 
+                handwritten_bbinfo_func_name);
+    }
+  }
   else if (strcmp (type_name, "object") == 0
 	   || strcmp (type_name, "1") == 0
 	   || strcmp (type_name, "STT_OBJECT") == 0)
