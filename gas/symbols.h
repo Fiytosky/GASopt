@@ -129,6 +129,12 @@ extern void S_SET_VOLATILE (symbolS *);
 extern void S_CLEAR_VOLATILE (symbolS *);
 extern void S_SET_FORWARD_REF (symbolS *);
 
+// fiytosky, add 
+extern unsigned S_GET_JMPTBL_SIZE(symbolS*);
+extern unsigned S_GET_JMPTBL_ENTRY_SZ(symbolS*);
+extern void S_SET_JMPTBL_SIZE(symbolS*, unsigned);
+extern void S_SET_JMPTBL_ENTRY_SZ(symbolS*, unsigned);
+
 // fiytosky, add
 const char* fiy_test_symbol (symbolS *);
 const char* fiy_func_name (symbolS *);

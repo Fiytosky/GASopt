@@ -35,6 +35,18 @@ struct basic_block{
 
 typedef struct basic_block bbinfo_mbb;
 
+// fixup information
+typedef struct fixup{
+  uint32_t offset; // offset from section
+  asection *sec; // which section the basic block belongs to
+  unsigned char is_new_section; // if its parent section is the new section that has the same name
+  unsigned char is_rela; // if this fixup is relative
+  uint32_t size; // the reference's size
+  uint32_t table_size; // for jump table reference only
+  uint32_t entry_size; // for jump table reference only
+  struct fixup *next; // link next fixup
+} bbinfo_fixup;
+
 
 extern const pseudo_typeS bbInfo_pseudo_table[];
 
@@ -43,6 +55,11 @@ extern uint32_t cur_function_id; // current function id
 extern uint32_t cur_function_end_id; // current function end id
 extern uint32_t prev_function_id; // prev function id
 extern uint32_t cur_block_id; // global current basic block id
+extern symbolS *last_symbol; // last user defined symbol
+extern char bbinfo_in_text;
+
+extern bbinfo_fixup* fixups_list_head; // fixup list
+extern bbinfo_fixup* fixups_list_tail; // last element of fixups list
 
 extern bbinfo_mbb* mbbs_list_head; // basic blocks list
 extern bbinfo_mbb* mbbs_list_tail; // the last element of basic blocks list
@@ -64,6 +81,10 @@ extern void handwritten_funcb_bbinfo_handler();
 extern void handwritten_funce_bbinfo_handler();
 extern void bbinfo_initbb_handwritten(void);
 
+extern int update_last_symbol(symbolS*);
+extern char bbinfo_is_collect_sec(asection*);
 extern void bbinfo_init(void);
+
+extern bbinfo_fixup* bbinfo_init_insert_fixup(asection*, int);
 // extern char bbinfo_in_text;
 #endif

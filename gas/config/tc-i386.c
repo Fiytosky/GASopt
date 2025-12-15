@@ -16207,6 +16207,9 @@ void
 md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT sec ATTRIBUTE_UNUSED,
                  fragS *fragP)
 {
+  // fiytosky, add
+  unsigned add_opcodes = 0;
+
   unsigned char *opcode;
   unsigned char *where_to_put_displacement = NULL;
   offsetT target_address;
@@ -16355,6 +16358,9 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT sec ATTRIBUTE_UNUSED,
 	case ENCODE_RELAX_STATE (COND_JUMP, BIG):
 	case ENCODE_RELAX_STATE (COND_JUMP86, BIG):
 	  extension = 5;		/* 2 opcode + 4 displacement  */
+    // fiytosky, add
+    add_opcodes = 1;
+
 	  opcode[1] = opcode[0] + 0x10;
 	  opcode[0] = TWO_BYTE_OPCODE_ESCAPE;
 	  where_to_put_displacement = &opcode[2];
@@ -16362,6 +16368,9 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT sec ATTRIBUTE_UNUSED,
 
 	case ENCODE_RELAX_STATE (COND_JUMP, BIG16):
 	  extension = 3;		/* 2 opcode + 2 displacement  */
+    // fiytosky, add
+    add_opcodes = 1;
+
 	  opcode[1] = opcode[0] + 0x10;
 	  opcode[0] = TWO_BYTE_OPCODE_ESCAPE;
 	  where_to_put_displacement = &opcode[2];
@@ -16399,6 +16408,24 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT sec ATTRIBUTE_UNUSED,
   md_number_to_chars ((char *) where_to_put_displacement,
 		      (valueT) (displacement_from_opcode_start - extension),
 		      DISP_SIZE_FROM_RELAX_STATE (fragP->fr_subtype));
+
+  // fiytosky, add
+  // 添加额外的fixup
+  char is_new_sec = bbinfo_is_collect_sec(sec);
+  if (is_new_sec)
+  {
+    // binpang, add fixup doesn't in fixup list
+    int tmp_offset = fragP->fr_address + fragP->fr_fix + add_opcodes;
+    bbinfo_fixup* tmp_fix = bbinfo_init_insert_fixup(sec, tmp_offset);
+    tmp_fix->sec = sec;
+    tmp_fix->offset = tmp_offset;
+    tmp_fix->is_new_section = 0;
+    tmp_fix->is_rela = 1; // this fixup is always pc-relative
+    tmp_fix->size = extension - add_opcodes;
+    if (fragP->last_bb)
+      fragP->last_bb->num_fixs++;
+  }
+
   fragP->fr_fix += extension;
 }
 

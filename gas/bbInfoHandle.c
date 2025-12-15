@@ -18,9 +18,12 @@ static void be_bbInfo_handler (int);
 static void inlineb_bbInfo_handler (int);
 static void inlinee_bbInfo_handler (int);
 
+char bbinfo_is_collect_sec(asection*);
 bbinfo_mbb* init_basic_block(void);
 void handwritten_funcb_bbinfo_handler();
 void handwritten_funce_bbinfo_handler();
+
+bbinfo_fixup* bbinfo_init_insert_fixup(asection*, int);
 
 const pseudo_typeS bbInfo_pseudo_table[] = {
     {"bbinfo_jmptbl", jmptable_bbInfo_handler, 0},
@@ -44,7 +47,10 @@ uint32_t cur_function_id; // current function id
 uint32_t cur_function_end_id; // current function end id
 uint32_t prev_function_id; // prev function id
 uint32_t cur_block_id; // global current basic block id
+char bbinfo_in_text = 0;
+symbolS *last_symbol;
 
+bbinfo_fixup* fixups_list_head; // fixup list
 bbinfo_mbb* mbbs_list_head; // basic blocks list
 bbinfo_mbb* mbbs_list_tail; // the last element of basic blocks list
 
@@ -72,6 +78,8 @@ void bbinfo_init() {
   cur_function_end_id = 0;
 	prev_function_id = 0;
 	cur_block_id = 0;
+  last_symbol = NULL;
+  fixups_list_head = NULL;
 
   function_head = 0;
 
@@ -89,6 +97,86 @@ void bbinfo_init() {
   return;
 }
 
+// if this section is the collected section
+// .text, .data.xxx, .rodata.xxxx, .init.xxx, .data.rel
+char bbinfo_is_collect_sec(asection *sec){
+  if (!sec){
+    as_warn(_("[bbinfo]: in function bbinfo_is_new_sec. The section is NULL"));
+    return -1;
+  }
+  const char* sec_name = sec->name;
+  char* tmp_pointer = NULL;
+  if ((tmp_pointer = strstr(sec_name, ".text")) &&
+      tmp_pointer == sec_name){
+      return 1;
+  }
+
+  if ((tmp_pointer = strstr(sec_name, ".rodata")) && 
+	tmp_pointer == sec_name){
+	return 1;
+      }
+
+  if ((tmp_pointer = strstr(sec_name, ".init_array")) &&
+      tmp_pointer == sec_name){
+      return 1;
+  }
+
+  if ((tmp_pointer = strstr(sec_name, ".data")) &&
+      tmp_pointer == sec_name){
+
+    if ((tmp_pointer = strstr(sec_name, ".data.rel.ro")) &&
+	tmp_pointer == sec_name){
+	return 1;
+    }
+      return 1;
+  }
+  return 0;
+}
+
+// init the fixup struct and insert it into fixups_list serially
+bbinfo_fixup* bbinfo_init_insert_fixup(asection* sec, int offset){
+
+  bbinfo_fixup* result_fixup = malloc(sizeof(bbinfo_fixup));
+  // init
+  memset (result_fixup, 0, sizeof(bbinfo_fixup));
+
+
+  if (fixups_list_head == NULL){
+    fixups_list_head = result_fixup;
+    return result_fixup;
+  }
+
+  bbinfo_fixup* prev = NULL;
+  bbinfo_fixup* cur = fixups_list_head;
+  // find the section that is equal to sec
+  while(cur && cur->sec != sec){
+    prev = cur;
+    cur = cur->next;
+  }
+
+  // The list does not have section sec
+  if (!cur){
+    prev->next = result_fixup;
+    return result_fixup;
+  }
+
+  // find the proper place accourding to its offset
+  while(cur && offset > cur->offset && cur->sec == sec){
+    prev = cur;
+    cur = cur->next;
+  }
+
+  // insert into the head
+  if (!prev){
+    result_fixup->next = fixups_list_head;
+    fixups_list_head = result_fixup;
+    return result_fixup;
+  }
+  prev->next = result_fixup;
+  result_fixup->next = cur;
+  return result_fixup;
+}
+
 // init the bbinfo struct
 bbinfo_mbb* init_basic_block(){
   // malloc space
@@ -104,6 +192,25 @@ bbinfo_mbb* init_basic_block(){
   }
   mbbs_list_tail = result_mbb;
   return result_mbb;
+}
+
+// update the last_symbol global variable
+// exclude dedug defined label
+int update_last_symbol(symbolS *sym){
+  unsigned int size = sizeof(symbol_blacklist) / sizeof(char*);
+  const char* symbol_name = S_GET_NAME(sym);
+
+  if (!strcmp(symbol_name, "")){
+    as_warn (_("[bbInfo]: the symbol name is null"));
+    return -1;
+  }
+// check if the symbol_name is in black list
+  for (unsigned int i = 0; i < size; i++){
+    if(strstr(symbol_name, symbol_blacklist[i]))
+      return -1;
+  } 
+  last_symbol = sym;
+  return 0;
 }
 
 void handwritten_funcb_bbinfo_handler(){
@@ -167,6 +274,14 @@ void jmptable_bbInfo_handler(int ignored ATTRIBUTE_UNUSED){
 	SKIP_WHITESPACE();
 
 	entry_size = get_absolute_expression();
+  if (last_symbol == NULL) {
+    return;
+  }
+
+  ///TODO: 当前只关注x86平台的情况
+
+  S_SET_JMPTBL_SIZE(last_symbol, table_size);
+  S_SET_JMPTBL_ENTRY_SZ(last_symbol, entry_size);
 	// as_warn (_("[handle .bbinfo_jmptbl]"));
   return; 
 }

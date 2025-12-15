@@ -27,6 +27,8 @@
 #include "write.h"
 #include "scfi.h"
 
+#include "bbInfoHandle.h" /* fiytosky, add */
+
 #include <limits.h>
 #ifndef CHAR_BIT
 #define CHAR_BIT 8
@@ -91,6 +93,12 @@ struct symbol_flags
   unsigned int multibyte_warned : 1;
 };
 
+// fiytosky, add
+struct jump_table{
+  unsigned int table_size; // the jump table size(number of jump table entry)
+  unsigned int entry_size; // the jump table entry size
+} jmp_table;
+
 /* A pointer in the symbol may point to either a complete symbol
    (struct symbol below) or to a local symbol (struct local_symbol
    defined here).  The symbol code can detect the case by examining
@@ -121,6 +129,9 @@ struct local_symbol
 
   /* The value of the symbol.  */
   valueT value;
+
+  // fiytosky, add
+  struct jump_table jmp_table;
 };
 
 /* The information we keep for a symbol.  The symbol table holds
@@ -149,6 +160,9 @@ struct symbol
 
   /* Extra symbol fields that won't fit.  */
   struct xsymbol *x;
+
+  // fiytosky, add
+  struct jump_table jmp_table;
 };
 
 /* Extra fields to make up a full symbol.  */
@@ -1366,6 +1380,35 @@ report_op_error (symbolS *symp, symbolS *left, operatorT op, symbolS *right)
 	as_bad (_("invalid operand (%s section) for `%s' when setting `%s'"),
 		seg_right->name, opname, sname);
     }
+}
+
+// fiytosky, add 跳转表相关信息
+unsigned S_GET_JMPTBL_SIZE(symbolS *s)
+{
+  if (s->flags.local_symbol)
+    return ((struct local_symbol *) s)->jmp_table.table_size;
+  return s->jmp_table.table_size;
+}
+
+unsigned S_GET_JMPTBL_ENTRY_SZ(symbolS *s)
+{
+  if (s->flags.local_symbol)
+    return ((struct local_symbol *) s)->jmp_table.entry_size;
+  return s->jmp_table.entry_size;
+}
+
+void S_SET_JMPTBL_SIZE(symbolS *s, unsigned size){
+  if (s->flags.local_symbol)
+    ((struct local_symbol *) s)->jmp_table.table_size = size;
+  else
+    s->jmp_table.table_size = size;
+}
+
+void S_SET_JMPTBL_ENTRY_SZ(symbolS *s, unsigned size){
+  if (s->flags.local_symbol)
+    ((struct local_symbol *) s)->jmp_table.entry_size = size;
+  else
+    s->jmp_table.entry_size = size;
 }
 
 // fiytosky, add

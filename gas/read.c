@@ -1171,6 +1171,9 @@ read_a_source_file (const char *name)
 		    }
 
 		  line_label = colon (s);	/* User-defined label.  */
+      // fiytosky, add
+      update_last_symbol(line_label);
+
 		  restore_line_pointer (nul_char);
 		  ++ input_line_pointer;
 #ifdef tc_check_label
@@ -1999,11 +2002,16 @@ s_data (int ignore ATTRIBUTE_UNUSED)
   segT section;
   int temp;
 
+  // fiytosky, add
+  bbinfo_in_text = 0;
+
   temp = get_absolute_expression ();
   if (flag_readonly_data_in_text)
     {
       section = text_section;
       temp += 1000;
+      // fiytosky, add
+      bbinfo_in_text = 1;
     }
   else
     section = data_section;
@@ -3889,6 +3897,9 @@ void
 s_text (int ignore ATTRIBUTE_UNUSED)
 {
   int temp;
+
+  // fiytosky, add
+  bbinfo_in_text = 1;
 
   temp = get_absolute_expression ();
   subseg_set (text_section, (subsegT) temp);
