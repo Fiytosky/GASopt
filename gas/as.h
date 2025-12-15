@@ -333,6 +333,8 @@ COMMON unsigned char flag_always_generate_output; /* -Z */
 /* fiytosky, add. 打印代码段中嵌入数据标签*/
 COMMON bool fiy_dlabel;
 
+COMMON bool fiy_dsok; /* sok方法 */
+
 enum synth_cfi_type
 {
   SYNTH_CFI_NONE = 0,

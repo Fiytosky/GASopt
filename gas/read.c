@@ -644,8 +644,10 @@ pobegin (void)
     }
 
   // fiytosky, add
-  pop_table_name = "bbInfo";
-  bbInfo_pop_insert();
+  if (fiy_dsok) {
+    pop_table_name = "bbInfo";
+    bbInfo_pop_insert();
+  }
 }
 
 static void
@@ -1172,7 +1174,9 @@ read_a_source_file (const char *name)
 
 		  line_label = colon (s);	/* User-defined label.  */
       // fiytosky, add
-      update_last_symbol(line_label);
+      if (fiy_dsok) {
+        update_last_symbol(line_label);
+      }
 
 		  restore_line_pointer (nul_char);
 		  ++ input_line_pointer;

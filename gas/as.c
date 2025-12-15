@@ -416,7 +416,10 @@ Options:\n\
 
   // fiytosky, add
   fprintf (stream, _("\
-  --fiy-dlabel            fiytosky add: dump label of data ind .text secion\n"));
+  --fiy-dlabel            fiytosky add: dump label of data in .text secion\n"));
+
+  fprintf (stream, _("\
+  --fiy-dsok            fiytosky add: collect data in .text secion by x86-sok\n"));
 
   md_show_usage (stream);
 
@@ -514,7 +517,8 @@ parse_args (int * pargc, char *** pargv)
     /* When you add options here, check that they do
        not collide with OPTION_MD_BASE.  See as.h.  */
       // fiytosky, add 
-      OPTION_FIY_DLABEL /* 打印嵌入数据标签 */
+      OPTION_FIY_DLABEL, /* 打印嵌入数据标签 */
+      OPTION_FIY_SOK /* x86-sok的方法 */
     };
 
   static const struct option std_longopts[] =
@@ -601,6 +605,7 @@ parse_args (int * pargc, char *** pargv)
     ,{"warn", no_argument, NULL, OPTION_WARN}
     ,{"multibyte-handling", required_argument, NULL, OPTION_MULTIBYTE_HANDLING}
     ,{"fiy-dlabel", no_argument, NULL, OPTION_FIY_DLABEL} /* fiytosky, add */
+    ,{"fiy-dsok", no_argument, NULL, OPTION_FIY_SOK} /* fiytosky, add */
   };
 
   /* Construct the option lists from the standard list and the target
@@ -983,6 +988,9 @@ This program has absolutely no warranty.\n"));
   case OPTION_FIY_DLABEL:
     fiy_dlabel = true;
     break;
+
+  case OPTION_FIY_SOK:
+    fiy_dsok = true;
 
 #if defined OBJ_ELF || defined OBJ_MAYBE_ELF
 	case OPTION_EXECSTACK:

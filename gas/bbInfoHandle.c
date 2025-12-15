@@ -70,8 +70,12 @@ char bbinfo_handled_ee = 0;
 
 // init the global variables
 void bbinfo_init() {
-  as_warn (_("[bbinfo initialize]"));
-
+  if (fiy_dsok) {
+    as_warn (_("[bbinfo initialize. fiy_dsok = true]"));
+  } else {
+    as_warn (_("[bbinfo initialize]. fiy_dsok = false"));
+  }
+  
 	mbbs_list_head = NULL;
   mbbs_list_tail = NULL;
 	cur_function_id = 0;

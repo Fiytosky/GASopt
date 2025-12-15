@@ -8450,7 +8450,7 @@ optimize_disp (const insn_template *t)
 	    i.types[op] = operand_type_and_not (i.types[op], anydisp);
 
       // fiytosky, add
-      if (mbbs_list_tail) {
+      if (fiy_dsok && mbbs_list_tail) {
         mbbs_list_tail->num_fixs++;
       }
 	  }
@@ -11604,7 +11604,7 @@ output_jump (void)
 		      i.op[0].disps, 1, jump_reloc);
 
   // fiytosky, add
-  if (mbbs_list_tail) {
+  if (fiy_dsok && mbbs_list_tail) {
     mbbs_list_tail->num_fixs++;
   }
 
@@ -11693,7 +11693,7 @@ output_interseg_jump (void)
 		 i.op[1].imms, 0, reloc (size, 0, 0, i.reloc[1]));
 
     // fiytosky, add
-    if (mbbs_list_tail) {
+    if (fiy_dsok && mbbs_list_tail) {
       mbbs_list_tail->num_fixs++;
     }
   }
@@ -11706,7 +11706,7 @@ output_interseg_jump (void)
 		 i.op[0].imms, 0, reloc (2, 0, 0, i.reloc[0]));
 
     // fiytosky, add
-    if (mbbs_list_tail) {
+    if (fiy_dsok && mbbs_list_tail) {
       mbbs_list_tail->num_fixs++;
     }
   }
@@ -12350,7 +12350,7 @@ output_insn (const struct last_insn *last_insn)
   // fiytosky, add. update the basic block offset in current/last frag
   // 仅仅记录新基本快的起始地址和对应的frag, 即insn_start_off和insn_start_frag
   insn_start_frag->last_bb = mbbs_list_tail;
-  if (mbbs_list_tail && mbbs_list_tail->is_begin) {
+  if (fiy_dsok && mbbs_list_tail && mbbs_list_tail->is_begin) {
     mbbs_list_tail->is_begin = 0;
     mbbs_list_tail->offset = insn_start_off;
     mbbs_list_tail->parent_frag = insn_start_frag;
@@ -12361,7 +12361,7 @@ output_insn (const struct last_insn *last_insn)
   }
 
   // handle handwritten file
-  if (bbinfo_handwritten_file) {
+  if (fiy_dsok && bbinfo_handwritten_file) {
     if (!mbbs_list_tail) {
       bbinfo_initbb_handwritten ();
       mbbs_list_tail->is_begin = 0;
@@ -12419,7 +12419,7 @@ output_insn (const struct last_insn *last_insn)
 
       // fiytosky, add. 如果产生了新的frag，将该frag关联当前基本快
       // padding当前没有实际写入字节，不更新basic block size
-      if (insn_start_frag != frag_now) {
+      if (fiy_dsok && insn_start_frag != frag_now) {
         fragP->last_bb = mbbs_list_tail;
       }
     }
@@ -12468,31 +12468,33 @@ output_insn (const struct last_insn *last_insn)
 
         // fiytosky, add
         // 获取insn size, 基本块的大小有可能在之后的阶段发生改变
-        offsetT insn_size = 0;
-        if (insn_start_frag == frag_now) {
-          insn_size = frag_now_fix () - insn_start_off;
-        } else {
-          insn_size = insn_start_frag->fr_fix - insn_start_off;
-          fragS* frag_tmp = NULL;
-          // 指令可能跨frag
-          for (frag_tmp = insn_start_frag->fr_next;
-              frag_tmp && frag_tmp != frag_now;
-              frag_tmp = frag_tmp->fr_next) {
-            insn_size += frag_tmp->fr_fix;
-            frag_tmp->last_bb = mbbs_list_tail;
+        if (fiy_dsok) {
+          offsetT insn_size = 0;
+          if (insn_start_frag == frag_now) {
+            insn_size = frag_now_fix () - insn_start_off;
+          } else {
+            insn_size = insn_start_frag->fr_fix - insn_start_off;
+            fragS* frag_tmp = NULL;
+            // 指令可能跨frag
+            for (frag_tmp = insn_start_frag->fr_next;
+                frag_tmp && frag_tmp != frag_now;
+                frag_tmp = frag_tmp->fr_next) {
+              insn_size += frag_tmp->fr_fix;
+              frag_tmp->last_bb = mbbs_list_tail;
+            }
+            insn_size += frag_now_fix ();
+            frag_now->last_bb = mbbs_list_tail;
           }
-          insn_size += frag_now_fix ();
-          frag_now->last_bb = mbbs_list_tail;
-        }
 
-        // 更新basic block size
-        if (mbbs_list_tail) {
-          mbbs_list_tail->size += (unsigned int)insn_size;
-        }
+          // 更新basic block size
+          if (mbbs_list_tail) {
+            mbbs_list_tail->size += (unsigned int)insn_size;
+          }
 
-        // bbinfo_last_insn_size可能不是精确的insn size
-        if (bbinfo_handwritten_file) {
-          bbinfo_last_inst_size = (unsigned int)insn_size;
+          // bbinfo_last_insn_size可能不是精确的insn size
+          if (bbinfo_handwritten_file) {
+            bbinfo_last_inst_size = (unsigned int)insn_size;
+          }
         }
 	    }
 	  else
@@ -12532,7 +12534,7 @@ output_insn (const struct last_insn *last_insn)
 
     // fiytosky, add. 如果产生了新的frag，将该frag关联当前基本快
     // padding当前没有实际写入字节，不更新basic block size
-    if (insn_start_frag != frag_now) {
+    if (fiy_dsok && insn_start_frag != frag_now) {
       fragP->last_bb = mbbs_list_tail;
     }
 	}
@@ -12554,7 +12556,7 @@ output_insn (const struct last_insn *last_insn)
 
     // fiytosky, add. 如果产生了新的frag，将该frag关联当前基本快
     // padding当前没有实际写入字节，不更新basic block size
-    if (insn_start_frag != frag_now) {
+    if (fiy_dsok && insn_start_frag != frag_now) {
       fragP->last_bb = mbbs_list_tail;
     }
 	}
@@ -12849,31 +12851,33 @@ output_insn (const struct last_insn *last_insn)
 
   // fiytosky, add
   // 更新insn_size
-  offsetT insn_size = 0;
-  if (insn_start_frag == frag_now) {
-    insn_size = frag_now_fix () - insn_start_off;
-  } else {
-    insn_size = insn_start_frag->fr_fix - insn_start_off;
-    fragS* frag_tmp = NULL;
-    // 指令可能跨frag
-    for (frag_tmp = insn_start_frag->fr_next;
-        frag_tmp && frag_tmp != frag_now;
-        frag_tmp = frag_tmp->fr_next) {
-      insn_size += frag_tmp->fr_fix;
-      frag_tmp->last_bb = mbbs_list_tail;
+  if (fiy_dsok) {
+    offsetT insn_size = 0;
+    if (insn_start_frag == frag_now) {
+      insn_size = frag_now_fix () - insn_start_off;
+    } else {
+      insn_size = insn_start_frag->fr_fix - insn_start_off;
+      fragS* frag_tmp = NULL;
+      // 指令可能跨frag
+      for (frag_tmp = insn_start_frag->fr_next;
+          frag_tmp && frag_tmp != frag_now;
+          frag_tmp = frag_tmp->fr_next) {
+        insn_size += frag_tmp->fr_fix;
+        frag_tmp->last_bb = mbbs_list_tail;
+      }
+      insn_size += frag_now_fix ();
+      frag_now->last_bb = mbbs_list_tail;
     }
-    insn_size += frag_now_fix ();
-    frag_now->last_bb = mbbs_list_tail;
-  }
 
-  // 更新basic block size
-  if (mbbs_list_tail) {
-    mbbs_list_tail->size += (unsigned int)insn_size;
-  }
+    // 更新basic block size
+    if (mbbs_list_tail) {
+      mbbs_list_tail->size += (unsigned int)insn_size;
+    }
 
-  // bbinfo_last_insn_size可能不是精确的insn size
-  if (bbinfo_handwritten_file) {
-    bbinfo_last_inst_size = (unsigned int)insn_size;
+    // bbinfo_last_insn_size可能不是精确的insn size
+    if (bbinfo_handwritten_file) {
+      bbinfo_last_inst_size = (unsigned int)insn_size;
+    }
   }
 }
 
@@ -13026,7 +13030,7 @@ output_disp (fragS *insn_start_frag, offsetT insn_start_off)
 
         // fiytosky, add
         // 更新basic block's fix number
-        if (mbbs_list_tail) {
+        if (fiy_dsok && mbbs_list_tail) {
           mbbs_list_tail->num_fixs++;
         }
 
@@ -13215,7 +13219,7 @@ output_imm (fragS *insn_start_frag, offsetT insn_start_off)
 			   i.op[n].imms, 0, reloc_type);
 
         // fiytosky, add
-        if (mbbs_list_tail) {
+        if (fiy_dsok && mbbs_list_tail) {
           mbbs_list_tail->num_fixs++;
         }
 	    }
@@ -16411,19 +16415,21 @@ md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, segT sec ATTRIBUTE_UNUSED,
 
   // fiytosky, add
   // 添加额外的fixup
-  char is_new_sec = bbinfo_is_collect_sec(sec);
-  if (is_new_sec)
-  {
-    // binpang, add fixup doesn't in fixup list
-    int tmp_offset = fragP->fr_address + fragP->fr_fix + add_opcodes;
-    bbinfo_fixup* tmp_fix = bbinfo_init_insert_fixup(sec, tmp_offset);
-    tmp_fix->sec = sec;
-    tmp_fix->offset = tmp_offset;
-    tmp_fix->is_new_section = 0;
-    tmp_fix->is_rela = 1; // this fixup is always pc-relative
-    tmp_fix->size = extension - add_opcodes;
-    if (fragP->last_bb)
-      fragP->last_bb->num_fixs++;
+  if (fiy_dsok) {
+    char is_new_sec = bbinfo_is_collect_sec(sec);
+    if (is_new_sec)
+    {
+      // binpang, add fixup doesn't in fixup list
+      int tmp_offset = fragP->fr_address + fragP->fr_fix + add_opcodes;
+      bbinfo_fixup* tmp_fix = bbinfo_init_insert_fixup(sec, tmp_offset);
+      tmp_fix->sec = sec;
+      tmp_fix->offset = tmp_offset;
+      tmp_fix->is_new_section = 0;
+      tmp_fix->is_rela = 1; // this fixup is always pc-relative
+      tmp_fix->size = extension - add_opcodes;
+      if (fragP->last_bb)
+        fragP->last_bb->num_fixs++;
+    }
   }
 
   fragP->fr_fix += extension;

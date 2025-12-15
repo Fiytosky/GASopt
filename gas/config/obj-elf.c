@@ -2382,7 +2382,7 @@ obj_elf_size (int ignore ATTRIBUTE_UNUSED)
   symbolS *sym;
 
   // fiytosky, add
-  if (bbinfo_handwritten_file) {
+  if (fiy_dsok && bbinfo_handwritten_file) {
     if (handwritten_bbinfo_func_name && !strcmp(handwritten_bbinfo_func_name, name)) {
       handwritten_funce_bbinfo_handler();
     }
@@ -2502,7 +2502,7 @@ obj_elf_type (int ignore ATTRIBUTE_UNUSED)
     type = BSF_FUNCTION;
 
     // fiytosky, add. function begin
-    if (bbinfo_handwritten_file) {
+    if (fiy_dsok && bbinfo_handwritten_file) {
       handwritten_funcb_bbinfo_handler();
       handwritten_bbinfo_func_name = fiy_func_name (sym);
       as_warn(_("[bbinfo]: DEBUG. Hello, call handwritten_funcb_bbinfo_handler()!, %s"), 
