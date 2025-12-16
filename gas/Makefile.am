@@ -101,7 +101,8 @@ GAS_CFILES = \
 	subsegs.c \
 	symbols.c \
 	write.c \
-	bbInfoHandle.c # fiytosky, add
+	bbInfoHandle.c \
+	datascope.c # fiytosky, add
 
 CFILES = $(GAS_CFILES) itbl-ops.c cgen.c
 
@@ -139,7 +140,8 @@ HFILES = \
 	symbols.h \
 	tc.h \
 	write.h \
-	bbInfoHandle.h # fiytosky, add
+	bbInfoHandle.h \
+	datascope.h # fiytosky, add
 
 # CPU files in config.
 

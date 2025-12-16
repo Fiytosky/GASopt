@@ -179,7 +179,7 @@ am__objects_1 = app.$(OBJEXT) as.$(OBJEXT) atof-generic.$(OBJEXT) \
 	read.$(OBJEXT) remap.$(OBJEXT) sb.$(OBJEXT) \
 	scfidw2gen.$(OBJEXT) scfi.$(OBJEXT) sframe-opt.$(OBJEXT) \
 	stabs.$(OBJEXT) subsegs.$(OBJEXT) symbols.$(OBJEXT) \
-	write.$(OBJEXT) bbInfoHandle.$(OBJEXT)
+	write.$(OBJEXT) bbInfoHandle.$(OBJEXT) datascope.$(OBJEXT)
 am_as_new_OBJECTS = $(am__objects_1)
 am__dirstamp = $(am__leading_dot)dirstamp
 as_new_OBJECTS = $(am_as_new_OBJECTS)
@@ -213,9 +213,9 @@ am__depfiles_remade = ./$(DEPDIR)/app.Po ./$(DEPDIR)/as.Po \
 	./$(DEPDIR)/atof-generic.Po ./$(DEPDIR)/bbInfoHandle.Po \
 	./$(DEPDIR)/cgen.Po ./$(DEPDIR)/codeview.Po \
 	./$(DEPDIR)/compress-debug.Po ./$(DEPDIR)/cond.Po \
-	./$(DEPDIR)/depend.Po ./$(DEPDIR)/dw2gencfi.Po \
-	./$(DEPDIR)/dwarf2dbg.Po ./$(DEPDIR)/ecoff.Po \
-	./$(DEPDIR)/ehopt.Po ./$(DEPDIR)/expr.Po \
+	./$(DEPDIR)/datascope.Po ./$(DEPDIR)/depend.Po \
+	./$(DEPDIR)/dw2gencfi.Po ./$(DEPDIR)/dwarf2dbg.Po \
+	./$(DEPDIR)/ecoff.Po ./$(DEPDIR)/ehopt.Po ./$(DEPDIR)/expr.Po \
 	./$(DEPDIR)/flonum-copy.Po ./$(DEPDIR)/flonum-konst.Po \
 	./$(DEPDIR)/flonum-mult.Po ./$(DEPDIR)/frags.Po \
 	./$(DEPDIR)/gen-sframe.Po ./$(DEPDIR)/ginsn.Po \
@@ -677,7 +677,8 @@ GAS_CFILES = \
 	subsegs.c \
 	symbols.c \
 	write.c \
-	bbInfoHandle.c # fiytosky, add
+	bbInfoHandle.c \
+	datascope.c # fiytosky, add
 
 CFILES = $(GAS_CFILES) itbl-ops.c cgen.c
 HFILES = \
@@ -714,7 +715,8 @@ HFILES = \
 	symbols.h \
 	tc.h \
 	write.h \
-	bbInfoHandle.h # fiytosky, add
+	bbInfoHandle.h \
+	datascope.h # fiytosky, add
 
 
 # CPU files in config.
@@ -1394,6 +1396,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/codeview.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/compress-debug.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cond.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/datascope.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/depend.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dw2gencfi.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dwarf2dbg.Po@am__quote@ # am--include-marker
@@ -1957,6 +1960,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/codeview.Po
 	-rm -f ./$(DEPDIR)/compress-debug.Po
 	-rm -f ./$(DEPDIR)/cond.Po
+	-rm -f ./$(DEPDIR)/datascope.Po
 	-rm -f ./$(DEPDIR)/depend.Po
 	-rm -f ./$(DEPDIR)/dw2gencfi.Po
 	-rm -f ./$(DEPDIR)/dwarf2dbg.Po
@@ -2235,6 +2239,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/codeview.Po
 	-rm -f ./$(DEPDIR)/compress-debug.Po
 	-rm -f ./$(DEPDIR)/cond.Po
+	-rm -f ./$(DEPDIR)/datascope.Po
 	-rm -f ./$(DEPDIR)/depend.Po
 	-rm -f ./$(DEPDIR)/dw2gencfi.Po
 	-rm -f ./$(DEPDIR)/dwarf2dbg.Po

@@ -206,6 +206,8 @@ frag_new (size_t old_frags_var_max_size
   frag_now->last_bb = NULL;
   frag_now->bb_offset = 0;
   frag_now->last_bb_added_size = 0;
+  frag_now->insn_frag = false;
+  frag_now->frag_symbol = NULL;
 }
 
 /* Start a new frag unless we have n more chars of room in the current frag.

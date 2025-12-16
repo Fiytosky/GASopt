@@ -2265,6 +2265,34 @@ reverse_data_labels (void)
 }
 // fiytosky, add **end** 剥离嵌入数据
 
+static void parse_frags (void) {
+	segment_info_type *info;
+	info = seg_info (text_section);
+	fragS *f = NULL;
+	f = info->frchainP->frch_root;
+
+	addressT offset = 0;
+	for (; f != NULL; f = f->fr_next) {
+		if (f->fr_next == NULL) {
+			break;
+		}
+
+		if (!f->insn_frag) {
+			offset = f->fr_next->fr_address - f->fr_address;
+			symbolS *sym = f->frag_symbol;
+
+			if (sym) {
+				const char* sym_name = fiy_test_symbol (sym);
+				as_datascope (_("frag_name: %s, frag_address: 0x%lx, frag_size: 0x%lx"),
+							 	 sym_name, f->fr_address, offset);
+			} else {
+				as_datascope (_("frag_name: null, frag_address: 0x%lx, frag_size: 0x%lx"),
+							 	 f->fr_address, offset);
+			}
+		}
+	}
+}
+
 /* Write the object file.  */
 
 void
@@ -2694,7 +2722,12 @@ write_object_file (void)
       if ((stdoutput->flags & BFD_COMPRESS) != 0)
 	bfd_map_over_sections (stdoutput, compress_debug, (char *) 0);
     }
-
+  
+  // fiytosky, add. 获取.text段中frag信息
+	if (fiy_dcollect) {
+		parse_frags ();
+	}
+  
   bfd_map_over_sections (stdoutput, write_contents, (char *) 0);
 }
 

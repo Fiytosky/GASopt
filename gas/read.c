@@ -47,6 +47,7 @@
 #include <limits.h>
 
 #include "bbInfoHandle.h" /* fiytosky, add */
+#include "datascope.h"
 
 #ifndef TC_START_LABEL
 #define TC_START_LABEL(STR, NUL_CHAR, NEXT_CHAR) (NEXT_CHAR == ':')
@@ -1176,6 +1177,11 @@ read_a_source_file (const char *name)
       // fiytosky, add
       if (fiy_dsok) {
         update_last_symbol(line_label);
+      }
+
+      if (fiy_dcollect) {
+        update_cur_symbol (line_label);
+        update_frag_symbol ();
       }
 
 		  restore_line_pointer (nul_char);

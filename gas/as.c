@@ -47,6 +47,7 @@
 #include "write.h"
 #include "ginsn.h"
 #include "bbInfoHandle.h" /* fiytosky, add */
+#include "datascope.h"
 
 #ifdef HAVE_ITBL_CPU
 #include "itbl-ops.h"
@@ -419,7 +420,10 @@ Options:\n\
   --fiy-dlabel            fiytosky add: dump label of data in .text secion\n"));
 
   fprintf (stream, _("\
-  --fiy-dsok            fiytosky add: collect data in .text secion by x86-sok\n"));
+  --fiy-dsok              fiytosky add: collect data in .text secion by basic block\n"));
+
+   fprintf (stream, _("\
+  --fiy-dcollect          fiytosky add: collect data in .text secion by assemly frag\n"));
 
   md_show_usage (stream);
 
@@ -518,7 +522,8 @@ parse_args (int * pargc, char *** pargv)
        not collide with OPTION_MD_BASE.  See as.h.  */
       // fiytosky, add 
       OPTION_FIY_DLABEL, /* 打印嵌入数据标签 */
-      OPTION_FIY_SOK /* x86-sok的方法 */
+      OPTION_FIY_SOK, /* x86-sok的方法 */
+      OPTION_FIY_DCOLLECT /* 我的方法 */
     };
 
   static const struct option std_longopts[] =
@@ -606,6 +611,7 @@ parse_args (int * pargc, char *** pargv)
     ,{"multibyte-handling", required_argument, NULL, OPTION_MULTIBYTE_HANDLING}
     ,{"fiy-dlabel", no_argument, NULL, OPTION_FIY_DLABEL} /* fiytosky, add */
     ,{"fiy-dsok", no_argument, NULL, OPTION_FIY_SOK} /* fiytosky, add */
+    ,{"fiy-dcollect", no_argument, NULL, OPTION_FIY_DCOLLECT} /* fiytosky, add */
   };
 
   /* Construct the option lists from the standard list and the target
@@ -992,6 +998,9 @@ This program has absolutely no warranty.\n"));
   case OPTION_FIY_SOK:
     fiy_dsok = true;
 
+  case OPTION_FIY_DCOLLECT:
+    fiy_dcollect = true;
+
 #if defined OBJ_ELF || defined OBJ_MAYBE_ELF
 	case OPTION_EXECSTACK:
 	  flag_execstack = 1;
@@ -1331,6 +1340,10 @@ gas_init (void)
   data_label_begin ();
   bbinfo_init ();
 
+  if (fiy_dcollect) {
+    datascope_init ();
+  }
+
   macro_init ();
 
   dwarf2_init ();
@@ -1539,6 +1552,11 @@ main (int argc, char ** argv)
 
   /* Only generate dependency file if assembler was successful.  */
   print_dependencies ();
+
+  // fiytosky, add
+  if (fiy_dcollect) {
+    datascope_clean ();
+  }
 
   xexit (EXIT_SUCCESS);
 }

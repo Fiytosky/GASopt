@@ -12496,6 +12496,18 @@ output_insn (const struct last_insn *last_insn)
             bbinfo_last_inst_size = (unsigned int)insn_size;
           }
         }
+
+        // fiytosky, add 标记所有是指令的frag
+        if (fiy_dcollect) {
+          // 设计可以确保insn_start_frag一定是insn frag
+          fragS* frag_tmp = NULL;
+          for (frag_tmp = insn_start_frag;
+               frag_tmp && frag_tmp != frag_now;
+               frag_tmp = frag_tmp->fr_next) {
+            frag_tmp->insn_frag = true;
+          }
+          frag_now->insn_frag = true;
+        }
 	    }
 	  else
 	    abs_section_offset += 5;
@@ -12878,6 +12890,18 @@ output_insn (const struct last_insn *last_insn)
     if (bbinfo_handwritten_file) {
       bbinfo_last_inst_size = (unsigned int)insn_size;
     }
+  }
+
+  // fiytosky, add 标记所有是指令的frag
+  if (fiy_dcollect) {
+    // 设计可以确保insn_start_frag一定是insn frag
+    fragS* frag_tmp = NULL;
+    for (frag_tmp = insn_start_frag;
+          frag_tmp && frag_tmp != frag_now;
+          frag_tmp = frag_tmp->fr_next) {
+      frag_tmp->insn_frag = true;
+    }
+    frag_now->insn_frag = true;
   }
 }
 

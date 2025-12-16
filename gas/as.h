@@ -335,6 +335,8 @@ COMMON bool fiy_dlabel;
 
 COMMON bool fiy_dsok; /* sok方法 */
 
+COMMON bool fiy_dcollect; /* 我的方法 */
+
 enum synth_cfi_type
 {
   SYNTH_CFI_NONE = 0,
@@ -483,6 +485,9 @@ PRINTF_LIKE (as_warn);
 PRINTF_WHERE_LIKE (as_bad_where);
 PRINTF_WHERE_LIKE (as_warn_where);
 PRINTF_INDENT_LIKE (as_info_where);
+
+// fiytosky, add. 将log写入文件
+PRINTF_LIKE (as_datascope);
 
 void   as_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 void   signal_init (void);

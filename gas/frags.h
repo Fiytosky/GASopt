@@ -108,6 +108,10 @@ struct frag {
   offsetT last_bb_added_fix_size; // fr_fix added number
   asection *parent; // which section it belongs to
 
+  // fiytosky, add
+  bool insn_frag; /* 判断该frag是否是指令frag */
+  symbolS *frag_symbol; /* 记录frag关联的symbol */
+
   /* Data begins here.  */
   char fr_literal[1];
 };

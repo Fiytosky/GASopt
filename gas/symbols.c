@@ -689,6 +689,11 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
 	    }
 
 	  locsym->section = now_seg;
+    // fiytosky, add 开启一个新的frag
+    if (fiy_dcollect && now_seg == text_section && frag_now->fr_fix != 0) {
+      frag_wane (frag_now);
+      frag_new (0);
+    }
 	  locsym->frag = frag_now;
 	  locsym->value = frag_now_fix ();
 	}
@@ -788,6 +793,11 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
     }
   else if (! flag_keep_locals && bfd_is_local_label_name (stdoutput, sym_name))
     {
+      // fiytosky, add
+      if (fiy_dcollect && now_seg == text_section && frag_now->fr_fix != 0) {
+        frag_wane (frag_now);
+        frag_new (0);
+      }
       symbolP = (symbolS *) local_symbol_make (sym_name, now_seg, frag_now,
 					       frag_now_fix ());
     }
