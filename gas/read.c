@@ -859,6 +859,23 @@ do_align (unsigned int n, char *fill, unsigned int len, unsigned int max)
   md_flush_pending_output ();
 #endif
 
+  // fiytosky, add
+  // align的处理模型为，在当前frag之后填充对齐字节，填充完后开启新frag
+  // 将align与其他frag分开
+  if (fiy_dcollect && now_seg == text_section) {
+    if (frag_now->fr_var > 0 && frag_now->fr_type == rs_machine_dependent) {
+      as_warn ("Before split align frag, frag_now has fr_var with fr_type rs_machine_dependent");
+    }
+
+    ///TODO: 替换为frag_now_fix_octets ()
+    if (frag_now_fix () > 0) {
+      // as_warn ("Before split align frag, frag_now is filled by some bytes");
+      frag_wane (frag_now);
+      frag_new (0);
+    }
+    frag_now->fr_flags.align_frag = 1;
+  }
+
 #ifdef md_do_align
   md_do_align (n, fill, len, max, just_record_alignment);
 #endif
@@ -1697,6 +1714,12 @@ s_align (signed int arg, int bytes_p)
 void
 s_align_bytes (int arg)
 {
+  // fiytosky, test
+  // i386调用的.align处理函数是这个
+  // if (fiy_dcollect) {
+  //   as_warn (_("Current directive is .align, frag_index: %d, fr_fix: %ld"), 
+  //              get_frag_count (), frag_now_fix ());
+  // }
   s_align (arg, 1);
 }
 
@@ -1706,6 +1729,10 @@ s_align_bytes (int arg)
 void
 s_align_ptwo (int arg)
 {
+  // fiytosky, test
+  // if (fiy_dcollect) {
+  //   as_warn (_("Current directive is .align, frag_index: %d"), get_frag_count ());
+  // }
   s_align (arg, 0);
 }
 
@@ -3911,7 +3938,11 @@ s_text (int ignore ATTRIBUTE_UNUSED)
   // fiytosky, add
   bbinfo_in_text = 1;
 
+  // .text、.data段可能被分成几个segment，因此汇编器中segment的最小段单位为subseg
+  // example .text 1, .text 2
   temp = get_absolute_expression ();
+  // fiytosky, add
+  // frag创建点1： 新建fr_chain时
   subseg_set (text_section, (subsegT) temp);
   demand_empty_rest_of_line ();
 }
@@ -3925,6 +3956,13 @@ s_weakref (int ignore ATTRIBUTE_UNUSED)
   symbolS *symbolP;
   symbolS *symbolP2;
   expressionS exp;
+
+  // fiytosky, add
+  // .weakref会干扰数据指针的分析
+  ///TODO: 先告警，以后再处理
+  if (fiy_dcollect) {
+    as_warn (_("Find .weakref symbol"));
+  }
 
   if ((name = read_symbol_name ()) == NULL)
     return;
@@ -4265,6 +4303,12 @@ cons_worker (int nbytes,	/* 1=.byte, 2=.word, 4=.long.  */
   char *stop = NULL;
   char stopc = 0;
 
+  // fiytosky, add. 
+  // md_flush_pending_output, gas用于处理特定硬件架构指令流水线或打包机制的宏
+  // 汇编器通常是读一行源码->生成一条机器指令->写入内存。但是在复杂架构下，汇编
+  // 器不能立刻输出指令，而是将若干条指令打包bundle起来，一起写入内存。
+  // 在处理.byte, .word等数据之前, gas会确保关闭指令的输出。这样gas不关注.byte
+  // 等directive处理的指令还是数据，直接写到内存中。
 #ifdef md_flush_pending_output
   md_flush_pending_output ();
 #endif
@@ -4345,6 +4389,12 @@ cons_worker (int nbytes,	/* 1=.byte, 2=.word, 4=.long.  */
 
   /* Disallow hand-crafting instructions using .byte.  FIXME - what about
      .word, .long etc ?  */
+  // fiytosky, add.
+  // 由于hand-written assembly的不规范性，开发者可能遗漏CFI伪指令。从binutils-2.42开始，gas
+  // 中引入了SCFI机制，以补充由于开发者遗漏的CFI信息。但如果触发了该机制，gas禁止在函数体中使用
+  // .byte硬编码指令(.word, .long应该是类似的，看gas所给的注释FIXME, 他们也在考虑这种情况)
+  // SCFI的详情参考：https://sourceware.org/binutils/wiki/gas/SCFI
+  ///TODO: 我们可以通过这种方式，检测汇编代码中的硬编码指令有多少
   if (flag_synth_cfi && frchain_now && frchain_now->frch_ginsn_data
       && nbytes == 1)
     as_bad (_("SCFI: hand-crafting instructions not supported"));
@@ -4641,6 +4691,11 @@ emit_expr_with_reloc (expressionS *exp,
     as_bad (_("attempt to store non-zero value in section `%s'"),
 	    segment_name (now_seg));
 
+  // fiytosky, add. 写入位置，每次写nbytes大小，.byte为1，.word为2，.long为4.
+  // 问题是，gas对于.byte等硬编码字节的写入是流式的，即依次写入所有的字节。这意味
+  // 一个.byte(.word, .long)后面跟的硬编码字节不一定全写在一个frag中。frag_grow
+  // 可能重新分配一个新的frag, may be more than one frag.
+  ///TODO: 设计一个状态转移表处理这种情况。
   p = frag_more ((int) nbytes);
 
   if (reloc != TC_PARSE_CONS_RETURN_NONE)

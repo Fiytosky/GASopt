@@ -22,6 +22,8 @@
 #include "subsegs.h"
 #include "obstack.h"
 
+#include "datascope.h" /* fiytosky, add */
+
 extern fragS zero_address_frag;
 extern fragS predefined_address_frag;
 
@@ -85,6 +87,11 @@ frag_alloc (struct obstack *ob, size_t extra)
   obstack_alignment_mask (ob) = oalign;
   memset (ptr, 0, SIZEOF_STRUCT_FRAG);
   totalfrags++;
+  // fiytosky, test
+  // if (now_seg == text_section) {
+  //   as_warn (_("allocate frag position, frag_index: %d"), 
+  //             totalfrags); 
+  // }
   return ptr;
 }
 
@@ -123,13 +130,40 @@ frag_grow (size_t nchars)
       if (newc > oldc)
 	obstack_chunk_size (&frchain_now->frch_obstack) = newc;
 
+      // fiytosky, add
+      // 汇编文件存在insn_frag由于room不足导致被动分割的情况，如果分割点前后都是显式的代码，这是没问题的.
+      // 但是有小概率出现分割点是insn -/- .byte之间. 这会导致.byte不会被标记为insn_frag，导致误报. insn_frag
+      // 在没有发生控制流转移指令时，是不会close的. 因此，当frag_now被标记为insn_frag且没有close时，frag_grow
+      // 产生的所有frag都应该是insn_frag.
+      // example openssl-3.3.5 poly1305-x86_64.s line 3450
+      /*
+        	addq	0(%rdx),%rax
+          adcq	8(%rdx),%rcx
+          movq	%rax,0(%rsi)
+          movq	%rcx,8(%rsi)
+
+          .byte	0xf3,0xc3     <-- 误报点
+        .cfi_endproc	
+        .size	poly1305_emit_base2_44,.-poly1305_emit_base2_44
+      */
+      bool is_target_insn_frag = false;
+      if (fiy_dcollect && frag_now->fr_flags.insn_frag == 1 && frag_now_fix () != frag_now->fr_fix) {
+        is_target_insn_frag = true;
+      }
+
       while (obstack_room (&frchain_now->frch_obstack) < nchars)
         {
           /* Not enough room in this frag.  Close it and start a new one.
              This must be done in a loop because the created frag may not
              be big enough if the current obstack chunk is used.  */
+          // fiytosky, test
+          // as_warn (_("frag grow is not enough, chars: %ld, frag_now: %u"), nchars, totalfrags);
           frag_wane (frag_now);
           frag_new (0);
+
+          if (is_target_insn_frag) {
+            frag_now->fr_flags.insn_frag = 1;
+          }
         }
 
       /* Restore the old chunk size.  */
@@ -181,6 +215,8 @@ frag_new (size_t old_frags_var_max_size
   gas_assert (former_last_fragP != 0);
   gas_assert (former_last_fragP == frag_now);
   frag_now = frag_alloc (&frchP->frch_obstack, 0);
+  // fiytosky, add
+  frag_now->frag_index = get_frag_count ();
 
   frag_now->fr_file = as_where (&frag_now->fr_line);
 
@@ -206,7 +242,7 @@ frag_new (size_t old_frags_var_max_size
   frag_now->last_bb = NULL;
   frag_now->bb_offset = 0;
   frag_now->last_bb_added_size = 0;
-  frag_now->insn_frag = false;
+  // frag_now->fr_flags = (struct frag_flags){0};
   frag_now->frag_symbol = NULL;
 }
 
@@ -384,9 +420,28 @@ frag_align_code (int alignment, int max)
 {
   char *p;
 
+  // fiytosky, add
+  fragS* fr = frag_now;
+
   p = frag_var (rs_align_code, MAX_MEM_FOR_RS_ALIGN_CODE, 1,
 		(relax_substateT) max, (symbolS *) 0,
 		(offsetT) alignment, (char *) 0);
+  
+  // fiytosky, add
+  // 在创建align frag的过程中，可能由于obstack chunk大小不足，依次创建多个
+  // 大小为0的frag. 这种情况需要将align 传播到frag_now之前的frag.
+  if (fiy_dcollect && fr != frag_now && !is_finish_subseg) {
+    for (fr; fr != NULL; fr = fr->fr_next) {
+      if (fr->fr_next == frag_now)
+        break;
+    }
+
+    fr->fr_flags.align_frag = 1;
+    gas_assert (frag_now->fr_flags.align_frag == 0);
+    // as_warn (_("Has discarded frags during handle .align. Target .align frag_index: %u, frag_now: %u"), 
+    //            fr->frag_index, frag_now->frag_index);
+  }
+
   *p = NOP_OPCODE;
 }
 

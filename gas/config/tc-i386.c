@@ -12215,6 +12215,42 @@ collect_labels (void)
   }
 }
 
+// fiytosky, add
+///@func update_symbol_status，更新控制流转移指令中的符号
+static void
+update_symbol_status (void) {
+  if (i.tm.opcode_modifier.jump == JUMP ||
+      i.tm.opcode_modifier.jump == JUMP_BYTE ||
+      i.tm.opcode_modifier.jump == JUMP_DWORD ||
+      i.tm.opcode_modifier.jump == JUMP_INTERSEGMENT) {
+    unsigned int n;
+
+    for (n = 0; n < i.operands; n++) {
+      if (operand_type_check (i.types[n], disp)) {
+        operatorT op_type = i.op[n].disps->X_op;
+        if (op_type == O_symbol || op_type == O_add || op_type == O_subtract) {
+          symbolS *symp = i.op[n].disps->X_add_symbol;
+          symbolS *symp2 = i.op[n].disps->X_op_symbol;
+          S_SET_CF_SYMBOL (symp);
+          S_SET_CF_SYMBOL (symp2);
+        }
+      }
+
+      if (operand_type_check (i.types[n], imm)) {
+        operatorT op_type = i.op[n].imms->X_op;
+        if (op_type == O_symbol || op_type == O_add || op_type == O_subtract) {
+          symbolS *symp = i.op[n].imms->X_add_symbol;
+          symbolS *symp2 = i.op[n].imms->X_op_symbol;
+          S_SET_CF_SYMBOL (symp);
+          S_SET_CF_SYMBOL (symp2);
+        }
+      }
+
+      // do noting for other situation
+    }
+  }
+}
+
 static void
 output_insn (const struct last_insn *last_insn)
 {
@@ -12347,6 +12383,17 @@ output_insn (const struct last_insn *last_insn)
   insn_start_frag = frag_now;
   insn_start_off = frag_now_fix ();
 
+  // fiytosky, test
+  // if (fiy_dcollect) {
+  //   if (strcmp (insn_name (&i.tm), "mov") == 0) {
+  //     as_warn (_("Current insn is: %s, frag_index: %d, fr_fix: %ld"), 
+  //              insn_name (&i.tm), get_frag_count (), frag_now_fix ());
+  //   } else if (strcmp (insn_name (&i.tm), "jnc") == 0) {
+  //     as_warn (_("Current insn is: %s, frag_index: %d, fr_fix: %ld"), 
+  //              insn_name (&i.tm), get_frag_count (), frag_now_fix ());
+  //   }
+  // }
+
   // fiytosky, add. update the basic block offset in current/last frag
   // 仅仅记录新基本快的起始地址和对应的frag, 即insn_start_off和insn_start_frag
   insn_start_frag->last_bb = mbbs_list_tail;
@@ -12431,6 +12478,11 @@ output_insn (const struct last_insn *last_insn)
       pre_386_16bit_warned = true;
     }
 
+  // fiytosky, add
+  if (fiy_dcollect) {
+    update_symbol_status ();
+  }
+
   /* Output jumps.  */
   if (i.tm.opcode_modifier.jump == JUMP)
     output_branch ();
@@ -12504,9 +12556,9 @@ output_insn (const struct last_insn *last_insn)
           for (frag_tmp = insn_start_frag;
                frag_tmp && frag_tmp != frag_now;
                frag_tmp = frag_tmp->fr_next) {
-            frag_tmp->insn_frag = true;
+            frag_tmp->fr_flags.insn_frag = 1;
           }
-          frag_now->insn_frag = true;
+          frag_now->fr_flags.insn_frag = 1;
         }
 	    }
 	  else
@@ -12899,9 +12951,9 @@ output_insn (const struct last_insn *last_insn)
     for (frag_tmp = insn_start_frag;
           frag_tmp && frag_tmp != frag_now;
           frag_tmp = frag_tmp->fr_next) {
-      frag_tmp->insn_frag = true;
+      frag_tmp->fr_flags.insn_frag = 1;
     }
-    frag_now->insn_frag = true;
+    frag_now->fr_flags.insn_frag = 1;
   }
 }
 

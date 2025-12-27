@@ -28,6 +28,7 @@
 #include "scfi.h"
 
 #include "bbInfoHandle.h" /* fiytosky, add */
+#include "datascope.h" /* fiytosky, add */
 
 #include <limits.h>
 #ifndef CHAR_BIT
@@ -132,6 +133,9 @@ struct local_symbol
 
   // fiytosky, add
   struct jump_table jmp_table;
+
+  // fiytosky, add 
+  bool call_flow_symbol; /* 该符号是否为控制流转移指令e.g. j<cc>, call访问的符号 */
 };
 
 /* The information we keep for a symbol.  The symbol table holds
@@ -163,6 +167,9 @@ struct symbol
 
   // fiytosky, add
   struct jump_table jmp_table;
+
+  // fiytosky, add 
+  bool call_flow_symbol; /* 该符号是否为控制流转移指令e.g. j<cc>, call访问的符号 */
 };
 
 /* Extra fields to make up a full symbol.  */
@@ -667,6 +674,22 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
   obj_frob_colon (sym_name);
 #endif
 
+  // fiytosky, add
+  // 在处理frag之前，检查是否需要切换frag
+  ///TODO: 当前不处理函数内的嵌入数据，仅处理函数体外的数据
+  if (fiy_dcollect && now_seg == text_section && !is_in_func) {
+    if (frag_now_fix () > 0) {
+      frag_wane (frag_now);
+      frag_new (0);
+    } else if (frag_now_fix () == 0 && frag_now->frag_symbol != NULL) {
+      // Find an anchor symbol
+      // 我们只考虑一个anchor symbol的情况，多anchor symbol的情况应该很少，也
+      // 不影响正确性. 多anchor symbol的情况只需要将frag_anchor换成链表就行
+      frag_now->fr_flags.anchor_frag = 1;
+      frag_now->frag_anchor = frag_now->frag_symbol;
+    }
+  }
+
   if ((symbolP = symbol_find (sym_name)) != 0)
     {
       S_CLEAR_WEAKREFR (symbolP);
@@ -687,13 +710,7 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
 	      as_bad (_("symbol `%s' is already defined"), sym_name);
 	      return symbolP;
 	    }
-
 	  locsym->section = now_seg;
-    // fiytosky, add 开启一个新的frag
-    if (fiy_dcollect && now_seg == text_section && frag_now->fr_fix != 0) {
-      frag_wane (frag_now);
-      frag_new (0);
-    }
 	  locsym->frag = frag_now;
 	  locsym->value = frag_now_fix ();
 	}
@@ -793,11 +810,6 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
     }
   else if (! flag_keep_locals && bfd_is_local_label_name (stdoutput, sym_name))
     {
-      // fiytosky, add
-      if (fiy_dcollect && now_seg == text_section && frag_now->fr_fix != 0) {
-        frag_wane (frag_now);
-        frag_new (0);
-      }
       symbolP = (symbolS *) local_symbol_make (sym_name, now_seg, frag_now,
 					       frag_now_fix ());
     }
@@ -1419,6 +1431,18 @@ void S_SET_JMPTBL_ENTRY_SZ(symbolS *s, unsigned size){
     ((struct local_symbol *) s)->jmp_table.entry_size = size;
   else
     s->jmp_table.entry_size = size;
+}
+
+// fiytosky, add
+bool S_IS_CF_SYMBOL (symbolS* s) {
+  if (!s)
+    return false;
+  return s->call_flow_symbol;
+}
+
+void S_SET_CF_SYMBOL (symbolS* s) {
+  if (s)
+    s->call_flow_symbol = true;
 }
 
 // fiytosky, add

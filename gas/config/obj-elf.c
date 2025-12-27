@@ -27,6 +27,7 @@
 #include "ginsn.h"
 
 #include "bbInfoHandle.h" /* fiytosky, add */
+#include "datascope.h"
 
 #ifndef ECOFF_DEBUGGING
 #define ECOFF_DEBUGGING 0
@@ -2381,10 +2382,23 @@ obj_elf_size (int ignore ATTRIBUTE_UNUSED)
   expressionS exp;
   symbolS *sym;
 
+  // fiytosky, add 
+  // char *permanent_name;
+
   // fiytosky, add
   if (fiy_dsok && bbinfo_handwritten_file) {
     if (handwritten_bbinfo_func_name && !strcmp(handwritten_bbinfo_func_name, name)) {
       handwritten_funce_bbinfo_handler();
+    }
+  }
+
+  // permanent_name = xstrdup (name);
+  if (fiy_dcollect) {
+    if (is_in_func && cur_func_name &&
+        !strcmp(cur_func_name, name)) {
+      // 函数处理结束，置空函数标记。
+      cur_func_name = NULL;
+      is_in_func = false; 
     }
   }
 
@@ -2427,6 +2441,16 @@ obj_elf_size (int ignore ATTRIBUTE_UNUSED)
   if (flag_synth_cfi
       && S_IS_FUNCTION (sym) && sym == ginsn_data_func_symbol ())
     ginsn_data_end (symbol_temp_new_now ());
+
+  // fiytosky, add
+  // if (fiy_dcollect) {
+  //   as_warn (_("End of function: %s. Close frag_index: %d, fr_fix: %ld"), 
+  //              permanent_name, get_frag_count (), frag_now_fix ());
+  //   // 函数结束，可以直接关闭frag
+  //   frag_wane (frag_now);
+  //   frag_new (0);
+  // }
+  // free (permanent_name);
 
   demand_empty_rest_of_line ();
 }
@@ -2479,6 +2503,7 @@ obj_elf_type (int ignore ATTRIBUTE_UNUSED)
   symbolS *sym;
   elf_symbol_type *elfsym;
 
+  // fiytosky, add. 提取directive中的symbol
   sym = get_sym_from_input_line_and_check ();
   c = *input_line_pointer;
   elfsym = (elf_symbol_type *) symbol_get_bfdsym (sym);
@@ -2507,6 +2532,11 @@ obj_elf_type (int ignore ATTRIBUTE_UNUSED)
       handwritten_bbinfo_func_name = fiy_func_name (sym);
       as_warn(_("[bbinfo]: DEBUG. Hello, call handwritten_funcb_bbinfo_handler()!, %s"), 
                 handwritten_bbinfo_func_name);
+    }
+
+    if (fiy_dcollect) {
+      cur_func_name = fiy_func_name (sym);
+      is_in_func = true;
     }
   }
   else if (strcmp (type_name, "object") == 0

@@ -136,6 +136,10 @@ extern void S_SET_JMPTBL_SIZE(symbolS*, unsigned);
 extern void S_SET_JMPTBL_ENTRY_SZ(symbolS*, unsigned);
 
 // fiytosky, add
+extern bool S_IS_CF_SYMBOL (symbolS*);
+extern void S_SET_CF_SYMBOL (symbolS*);
+
+// fiytosky, add
 const char* fiy_test_symbol (symbolS *);
 const char* fiy_func_name (symbolS *);
 void store_labels_for_xom (symbolS *, symbolS *);

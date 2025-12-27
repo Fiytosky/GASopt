@@ -28,6 +28,8 @@
 #include "compress-debug.h"
 #include "codeview.h"
 
+#include "datascope.h"
+
 #ifndef TC_FORCE_RELOCATION
 #define TC_FORCE_RELOCATION(FIX)		\
   (generic_force_reloc (FIX))
@@ -1638,6 +1640,12 @@ write_contents (bfd *abfd ATTRIBUTE_UNUSED,
   addressT offset = 0;
   fragS *f;
 
+  // fiytosky, add
+  bool is_xom_section = false;
+  if (!strcmp(sec->name, ".xom")) {
+	is_xom_section = true;
+  }
+
   /* Write out the frags.  */
   if (seginfo == NULL
       || !(bfd_section_flags (sec) & SEC_HAS_CONTENTS))
@@ -1652,7 +1660,7 @@ write_contents (bfd *abfd ATTRIBUTE_UNUSED,
       char *fill_literal;
       offsetT count;
 
-      gas_assert (f->fr_type == rs_fill || f->fr_type == rs_fill_nop);
+      gas_assert (f->fr_type == rs_fill || f->fr_type == rs_fill_nop || is_xom_section);
       if (f->fr_fix)
 	{
 	  x = bfd_set_section_contents (stdoutput, sec,
@@ -2266,31 +2274,95 @@ reverse_data_labels (void)
 // fiytosky, add **end** 剥离嵌入数据
 
 static void parse_frags (void) {
+	// init xom_section
+	xom_section_init ();
+	write_meteheader ();
+
 	segment_info_type *info;
 	info = seg_info (text_section);
 	fragS *f = NULL;
 	f = info->frchainP->frch_root;
 
-	addressT offset = 0;
+	text_frag_index = 0;
+	unsigned int offset = 0;
 	for (; f != NULL; f = f->fr_next) {
+		text_frag_index++;
+		// 最后一个frag一定不是嵌入数据frag，因为subseg_finish会做最终的align
 		if (f->fr_next == NULL) {
 			break;
 		}
 
-		if (!f->insn_frag) {
+		// 在主流架构上(除了mips)都定义了宏md_do_align，.align指令的填充类别都是rs_align_code
+		// 其他情况下为rs_align / rs_align_test
+		if (f->fr_flags.align_frag == 1) {
+			continue;
+		}
+
+		if (!f->fr_flags.insn_frag) {
 			offset = f->fr_next->fr_address - f->fr_address;
 			symbolS *sym = f->frag_symbol;
+			
+			// 由于嵌入数据都是由.byte, .word, .quad等指令引入，当嵌入数据体积很大时，可能
+			// 会分成若干个frag，这种情况是允许存在的，我们在统计数据时只做简单的累加就好
+			if (offset > 0 && !S_IS_CF_SYMBOL (sym)) {
+				if (f->fr_flags.anchor_frag) {
+					gas_assert (sym);
+					gas_assert (f->frag_anchor);
+					const char* anchor_name = fiy_test_symbol (f->frag_anchor);
+					as_datascope (_("frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu, is_anchor: true"),
+									anchor_name, f->fr_address, f->frag_index);
 
-			if (sym) {
-				const char* sym_name = fiy_test_symbol (sym);
-				as_datascope (_("frag_name: %s, frag_address: 0x%lx, frag_size: 0x%lx"),
-							 	 sym_name, f->fr_address, offset);
-			} else {
-				as_datascope (_("frag_name: null, frag_address: 0x%lx, frag_size: 0x%lx"),
-							 	 f->fr_address, offset);
+					metedataS data;
+					data.frag_index = f->frag_index;
+					data.frag_size = 0;
+					data.frag_address = f->fr_address;
+					data.fr_flags = f->fr_flags;
+
+					gas_assert (anchor_name);
+					unsigned int sym_size = strlen(anchor_name) + 1;
+					data.symbol_size = sym_size;
+
+					write_metedata (&data, anchor_name);
+				}
+				if (sym) {
+					const char* sym_name = fiy_test_symbol (sym);
+					as_datascope (_("frag_name: %s, frag_address: 0x%lx, frag_size: 0x%lx, frag_index: %lu"),
+									sym_name, f->fr_address, offset, f->frag_index);
+
+					metedataS data;
+					data.frag_index = f->frag_index;
+					data.frag_size = offset;
+					data.frag_address = f->fr_address;
+					data.fr_flags = f->fr_flags;
+
+					gas_assert (sym_name);
+					unsigned int sym_size = strlen(sym_name) + 1;
+					data.symbol_size = sym_size;
+
+					write_metedata (&data, sym_name);
+				} else {
+					as_datascope (_("frag_name: null, frag_address: 0x%lx, frag_size: 0x%lx, frag_index: %lu"),
+									f->fr_address, offset, f->frag_index);
+
+					metedataS data;
+					data.frag_index = f->frag_index;
+					data.frag_size = offset;
+					data.frag_address = f->fr_address;
+					data.fr_flags = f->fr_flags;
+
+					const char* sym_name = "null";
+					unsigned int sym_size = strlen(sym_name) + 1;
+					data.symbol_size = sym_size;
+
+					write_metedata (&data, sym_name);
+				}
 			}
 		}
 	}
+
+	subsegs_finish_section (xom_section);
+	relax_segment (seg_info (xom_section)->frchainP->frch_root, xom_section, 0);
+  	size_seg (stdoutput, xom_section, NULL);
 }
 
 /* Write the object file.  */
@@ -2302,7 +2374,9 @@ write_object_file (void)
 #ifndef WORKING_DOT_WORD
   fragS *fragP;			/* Track along all frags.  */
 #endif
-
+  
+  // fiytosky, add
+  is_finish_subseg = true;
   subsegs_finish ();
 
 #ifdef md_pre_output_hook
@@ -2725,6 +2799,12 @@ write_object_file (void)
   
   // fiytosky, add. 获取.text段中frag信息
 	if (fiy_dcollect) {
+		const char *filename;
+		unsigned int line_number = 0;
+		filename = as_where_top (&line_number);
+		if (filename) {
+			as_warn (_("Current file: %s"), filename);
+		}
 		parse_frags ();
 	}
   

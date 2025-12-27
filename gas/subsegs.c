@@ -129,6 +129,8 @@ subseg_set_rest (segT seg, subsegT subseg)
 #endif
       newP->frch_frag_now = frag_alloc (&newP->frch_obstack, 0);
       newP->frch_frag_now->fr_type = rs_fill;
+      // fiytosky, add. 标记frag
+      newP->frch_frag_now->fr_flags.first_frag = 1;
       newP->frch_cfi_data = NULL;
       newP->frch_ginsn_data = NULL;
 

@@ -21,6 +21,43 @@
 #ifndef FRAGS_H
 #define FRAGS_H
 
+// fiytosky, add. 详细标注frag的类型
+struct frag_flags {
+  // 该frag是否为frag_chain的第一个frag
+  unsigned int first_frag : 1;
+
+  // 该frag是否为写入指令的frag
+  unsigned int insn_frag : 1;
+
+  // 该frag类型是否为align
+  // fr_type = rs_align / rs_align_code
+  unsigned int align_frag : 1;
+
+  // 该frag是否为只包含锚点符号，但size为0的frag
+  // 这种frag是不影响嵌入数据大小统计的，但是会影响嵌入数据的访问模式.
+  // 汇编代码中对嵌入数据的访问很有可能通过该锚点符号，而不是实际的数据
+  // 符号.
+  // example: openssl-3.3.5 poly1305-x86_64.s
+  /*
+    leaq	.Lconst(%rip),%rcx
+    leaq	48+64(%rdi),%rdi
+    vmovdqa	96(%rcx),%ymm9
+     ...
+    .align	64
+    .Lconst:
+    .Lmask24:
+    .long	0x0ffffff,0,0x0ffffff,0,0x0ffffff,0,0x0ffffff,0
+    .L129:
+    .long	16777216,0,16777216,0,16777216,0,16777216,0
+    .Lmask26:
+    .long	0x3ffffff,0,0x3ffffff,0,0x3ffffff,0,0x3ffffff,0
+    .Lpermd_avx2:
+    .long	2,2,2,3,2,0,2,1
+    .Lpermd_avx512:
+  */
+  unsigned int anchor_frag : 1;
+};
+
 /* A code fragment (frag) is some known number of chars, followed by some
    unknown number of chars. Typically the unknown number of chars is an
    instruction address whose size is yet unknown. We always know the greatest
@@ -109,8 +146,10 @@ struct frag {
   asection *parent; // which section it belongs to
 
   // fiytosky, add
-  bool insn_frag; /* 判断该frag是否是指令frag */
+  struct frag_flags fr_flags;
   symbolS *frag_symbol; /* 记录frag关联的symbol */
+  symbolS *frag_anchor; /* anchor symbol */
+  unsigned int frag_index;
 
   /* Data begins here.  */
   char fr_literal[1];
