@@ -997,9 +997,11 @@ This program has absolutely no warranty.\n"));
 
   case OPTION_FIY_SOK:
     fiy_dsok = true;
+    break;
 
   case OPTION_FIY_DCOLLECT:
     fiy_dcollect = true;
+    break;
 
 #if defined OBJ_ELF || defined OBJ_MAYBE_ELF
 	case OPTION_EXECSTACK:
