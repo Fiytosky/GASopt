@@ -862,14 +862,24 @@ xom_msg (const char *fmt, ...) {
   va_list arg;
 
   if (fp_xom_log == NULL) {
-		const char *log_file = (char*)malloc(128 * sizeof(char));
+		// fix bug
+		const char *base_name = strrchr(output_filename, '/');
+		if (base_name) {
+        base_name++;
+    } else {
+        base_name = output_filename;
+    }
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+		const char *log_file = (char*)malloc(PATH_MAX * sizeof(char));
 		if (log_file == NULL) {
 			info_msg ("Failed to create log file -> memory allocation failed");
 			xexit (1);
 			return;
 		}
 
-		sprintf(log_file, "/root/xom/test/tmp/ld_%s_%d.txt", output_filename, getpid());
+		sprintf(log_file, "/root/xom/test/tmp/ld_%s_%d.txt", base_name, getpid());
 		// info_msg (_("The log will be written in file %s"), log_file);
 
 		fp_xom_log = fopen (log_file, "a");
