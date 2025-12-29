@@ -11068,3 +11068,50 @@ cmdline_remove_object_only_files (void)
 	break;
       }
 }
+
+// fiytosky, add
+void ldupdate_xom_data () {
+  LANG_FOR_EACH_INPUT_STATEMENT (f) 
+  {
+    xom_msg (_("fiytosky: input file: %s\n"), f->filename);
+    bfd *abfd = f->the_bfd;
+    asection *sect;
+    int text_fragment_count = 0;
+
+    if (abfd == NULL || (bfd_get_format(abfd) != bfd_object))
+      continue;
+
+    // 遍历BFD中的所有段
+    for (sect = abfd->sections; sect != NULL; sect = sect->next)
+    {
+      /* 3. 检查段是否被丢弃 (SEC_EXCLUDE) 以及是否映射到了输出文件 */
+      if ((sect->flags & SEC_EXCLUDE) || sect->output_section == NULL) {
+        continue;
+      }
+
+      /* 注意：输入段名可能是 .text.foo，但 output_section->name 肯定是 .text */
+      if (strcmp(sect->output_section->name, ".text") == 0)
+      {
+        text_fragment_count++;
+        
+        /* 5. 计算最终的文件偏移 (File Offset) */
+        /* filepos 是输出段的文件头偏移 */
+        /* output_offset 是输入段在输出段内的相对偏移 */
+        ufile_ptr final_offset = sect->output_section->filepos + sect->output_offset;
+        
+        /* 打印记录 */
+        xom_msg ("    Fragment Name: %s\n", sect->name);
+        xom_msg ("    Final File Offset: 0x%lx\n", (unsigned long)final_offset);
+        xom_msg ("    Size: 0x%lx\n", (unsigned long)sect->size);
+      }
+    }
+
+    if (text_fragment_count > 1) {
+      xom_msg ("    [ALERT] .text was SPLIT into %d fragments!\n", text_fragment_count);
+    } else if (text_fragment_count == 1) {
+      xom_msg ("    [OK] .text is contiguous (merged as single block).\n");
+    } else {
+      xom_msg ("    [INFO] No .text contribution.\n");
+    }
+  }
+}

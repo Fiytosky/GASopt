@@ -553,5 +553,24 @@ ldwrite (void)
 	einfo (_("%F%P: final link failed: %E\n"));
       else
 	einfo (_("%F%P: final link failed\n"));
-    }
+    } 
+	else if (fiy_dcollect) {
+		/* fiytosky, add */
+		bfd *abfd = link_info.output_bfd;	
+		if (abfd != NULL) {
+			asection *text_sec = bfd_get_section_by_name (abfd, ".text");
+			if (text_sec != NULL) {
+				file_ptr offset = text_sec->filepos;
+				bfd_size_type size = text_sec->size;
+				bfd_vma vma = text_sec->vma;
+				bfd_vma lma = text_sec->lma;
+				xom_msg ("    .text Section Size: 0x%lx\n", (unsigned long)size);
+				xom_msg ("    .text Section File Offset: 0x%lx\n", (unsigned long)offset);
+				xom_msg ("    .text Section VMA: 0x%lx\n", (unsigned long)vma);
+				xom_msg ("    .text Section LMA: 0x%lx\n", (unsigned long)lma);
+			}
+		} else {
+			xom_msg ("    Warning: No .text section found in output.\n");
+		}
+	}
 }

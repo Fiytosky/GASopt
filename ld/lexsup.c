@@ -650,6 +650,9 @@ static const struct ld_option ld_options[] =
 		   "                                <method> is: share-unconflicted (default),\n"
 		   "                                             share-duplicated"),
     TWO_DASHES },
+  /* fiytosky, add */
+	{ {"fiy-dcollect", no_argument, NULL, OPTION_FIY_DCOLLECT},
+	   '\0', NULL, N_("Collect embeded data info"), TWO_DASHES },
 };
 
 #define OPTION_COUNT ARRAY_SIZE (ld_options)
@@ -1053,6 +1056,10 @@ parse_args (unsigned argc, char **argv)
 	  help ();
 	  xexit (0);
 	  break;
+	case OPTION_FIY_DCOLLECT:
+		/* fiytosky, add */
+		fiy_dcollect = true;
+		break;
 	case 'L':
 	  ldfile_add_library_path (optarg, true);
 	  break;

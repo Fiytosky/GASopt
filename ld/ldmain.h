@@ -63,4 +63,9 @@ extern void add_ignoresym (struct bfd_link_info *, const char *);
 extern void add_keepsyms_file (const char *);
 extern void track_dependency_files (const char *);
 
+// fiytosky, add
+extern bool fiy_dcollect;
+extern FILE *fp_xom_log;
+void ldupdate_xom_data (void);
+
 #endif

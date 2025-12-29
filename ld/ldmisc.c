@@ -848,3 +848,44 @@ percent_decode (const char *src, char *dst)
     }
   *dst = '\0';
 }
+
+// fiytosky, add
+static void close_fp_log () {
+	if (fp_xom_log) {
+		fclose (fp_xom_log);
+		fp_xom_log = NULL;
+	}
+}
+
+void 
+xom_msg (const char *fmt, ...) {
+  va_list arg;
+
+  if (fp_xom_log == NULL) {
+		const char *log_file = (char*)malloc(128 * sizeof(char));
+		if (log_file == NULL) {
+			info_msg ("Failed to create log file -> memory allocation failed");
+			xexit (1);
+			return;
+		}
+
+		sprintf(log_file, "/root/xom/test/tmp/ld_%s_%d.txt", output_filename, getpid());
+		// info_msg (_("The log will be written in file %s"), log_file);
+
+		fp_xom_log = fopen (log_file, "a");
+		if (fp_xom_log == NULL) {
+			fp_xom_log = stdout;
+			info_msg ("Warner: Failed to open debug log file!\n");
+		} else {
+			atexit(close_fp_log);
+		}
+
+		free (log_file);
+  }
+
+  va_start (arg, fmt);
+  vfinfo (fp_xom_log, fmt, arg, false);
+  va_end (arg);
+
+	fflush (fp_xom_log);
+}

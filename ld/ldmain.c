@@ -98,6 +98,10 @@ ld_config_type config;
 
 sort_type sort_section;
 
+// fiytosky, add
+bool fiy_dcollect;
+FILE *fp_xom_log = NULL;
+
 static const char *get_sysroot
   (int, char **);
 static char *get_emulation
@@ -556,6 +560,14 @@ main (int argc, char **argv)
     }
   link_info.output_bfd->flags
     |= flags & bfd_applicable_file_flags (link_info.output_bfd);
+
+  // fiytosky, add.
+  // 记录输入文件text段在最终ELF文件中的偏移
+  if (fiy_dcollect) {
+    ldupdate_xom_data ();
+
+    xom_msg (_("fiytosky: output file: %s\n"), output_filename);
+  }
 
   ldwrite ();
 
