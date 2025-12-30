@@ -20,6 +20,7 @@ unsigned long long text_frag_index;
 meteheaderS mete_header;
 
 void xom_section_init () {
+	as_warn ("Create .xom section");
 	xom_section = subseg_new (XOM_SECTION_NAME, 0);
 	bfd_set_section_flags (xom_section, SEC_HAS_CONTENTS);
 
@@ -48,6 +49,12 @@ void datascope_init () {
 	is_finish_subseg = false;
 	text_frag_index = 0;
 
+	// 当前-g参数会导致subseg_new(XOM_SECTION)失败，当开启fiy--dcollect时
+	// 禁止-g参数生效-->设置debug_type和dwarf_level为默认值
+	///FIXME: fix this bug
+	debug_type = DEBUG_UNSPECIFIED;
+	dwarf_level = 3;
+	
 	log_file_init ();
 }
 
