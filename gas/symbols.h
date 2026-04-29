@@ -138,6 +138,11 @@ extern void S_SET_JMPTBL_ENTRY_SZ(symbolS*, unsigned);
 // fiytosky, add
 extern bool S_IS_CF_SYMBOL (symbolS*);
 extern void S_SET_CF_SYMBOL (symbolS*);
+extern bool S_IS_MA_SYMBOL (symbolS*);
+extern void S_SET_MA_SYMBOL (symbolS*);
+extern void S_SET_BIND_INFO (symbolS*, bool);
+extern bool S_GET_BIND_INFO (symbolS*);
+// void check_local_symbol_bind_info (void);
 
 // fiytosky, add
 const char* fiy_test_symbol (symbolS *);

@@ -419,6 +419,16 @@ cvt_frag_to_fill (segT sec ATTRIBUTE_UNUSED, fragS *fragP)
     case rs_org:
     case rs_space:
 #ifdef HANDLE_ALIGN
+	  // fiytosky, add test
+	//   if (sec == text_section) {
+		// as_datascope (_("frag_index: %lu, handle align! fr_fix: %lx, fr_address: %lx, section: %s"),
+		// 					fragP->frag_index, fragP->fr_fix, fragP->fr_address, sec->name);
+		// gas_assert (fragP);
+		// gas_assert (fragP->fr_next);
+		// as_datascope (_("frag_index: %lu, handle align! fr_fix: %lx, fr_address: %lx, next_fr_address: %lx"),
+		// 					fragP->frag_index, fragP->fr_fix, fragP->fr_address, fragP->fr_next->fr_address);
+	//   }
+	  
       HANDLE_ALIGN (sec, fragP);
 #endif
     skip_align:
@@ -1642,7 +1652,7 @@ write_contents (bfd *abfd ATTRIBUTE_UNUSED,
 
   // fiytosky, add
   bool is_xom_section = false;
-  if (!strcmp(sec->name, ".xom")) {
+  if (!strcmp(sec->name, ".xom") || !strcmp(sec->name, ".xomtwo")) {
 	is_xom_section = true;
   }
 
@@ -2271,22 +2281,87 @@ reverse_data_labels (void)
 		}
 	}
 }
-// fiytosky, add **end** 剥离嵌入数据
 
+// 遍历符号表
+static void parse_symbols (void) {
+	if (symbol_rootP) {
+		symbolS *symp;
+		for (symp = symbol_rootP; symp != NULL; symp = symbol_next (symp))
+		{
+			const char *name = S_GET_NAME (symp);
+			fragS *f = symbol_get_frag (symp);
+			bool bind = S_GET_BIND_INFO (symp);
+			// as_datascope (_("symbol_name: %s"),
+			// 						name);
+			if (bind) {
+				f->frag_has_checked = true;
+				if (f->fr_flags.insn_frag) {
+					direct_code_num++;
+				} else if (S_IS_MA_SYMBOL (symp)) {
+					direct_data_num++;
+				}
+				// as_datascope (_("| direct_code_num1 | symbol_name: %s, frag_index: %lu"),
+				// 					name, f->frag_index);
+			}
+
+		}
+	}
+}
+
+// fiytosky, add **end** 剥离嵌入数据
 static void parse_frags (void) {
 	// init xom_section
 	xom_section_init ();
-	write_meteheader ();
+	// write_meteheader ();
 
 	segment_info_type *info;
 	info = seg_info (text_section);
 	fragS *f = NULL;
 	f = info->frchainP->frch_root;
 
-	text_frag_index = 0;
+	unsigned int bytes_frag_num = 0;
+	for (; f != NULL; f = f->fr_next) {
+		if (f->frag_has_hardcode) {
+			bytes_frag_num += f->hardcode_size;
+		}
+		if (f->frag_has_checked) {
+			continue;
+		}
+		// statistics
+		symbolS *tsym = f->frag_symbol;
+		if (!tsym) {
+			if (S_IS_CF_SYMBOL (tsym) && f->frag_has_hardcode && f->fr_flags.insn_frag) {
+				const char* sym_name = fiy_test_symbol (tsym);
+				if (f->begin_bytes) {
+					direct_code_num++;
+					// as_datascope (_("| direct_code_num | frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+					// 				sym_name, f->fr_address, f->frag_index);
+				} else {
+					// as_datascope (_("| fall_through_num1 | frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+					// 				sym_name, f->fr_address, f->frag_index);
+					fall_through_num++;
+				}
+			}
+			if (S_IS_MA_SYMBOL (tsym) && f->frag_has_hardcode && !f->fr_flags.insn_frag) {
+				const char* sym_name = fiy_test_symbol (tsym);
+				// as_datascope (_("| direct_data_num | frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+				// 					sym_name, f->fr_address, f->frag_index);
+				direct_data_num++;
+			}
+		} else {
+			if (f->frag_has_hardcode && f->fr_flags.insn_frag) {
+				// as_datascope (_("| fall_through_num2 | frag_name: null, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+				// 					f->fr_address, f->frag_index);
+				fall_through_num++;
+			}
+		}
+	}
+	write_meteheader (total_hardcoded_bytes, bytes_frag_num, direct_code_num, direct_data_num, fall_through_num);
+
+
+	f = info->frchainP->frch_root;
 	unsigned int offset = 0;
 	for (; f != NULL; f = f->fr_next) {
-		text_frag_index++;
 		// 最后一个frag一定不是嵌入数据frag，因为subseg_finish会做最终的align
 		if (f->fr_next == NULL) {
 			break;
@@ -2365,6 +2440,405 @@ static void parse_frags (void) {
   	size_seg (stdoutput, xom_section, NULL);
 }
 
+static void parse_frags_for_test (void) {
+	// init xom_test_section
+	xom_test_section_init ();
+	// write_meteheader_for_test ();
+
+	segment_info_type *info;
+	info = seg_info (text_section);
+	fragS *f = NULL;
+	f = info->frchainP->frch_root;
+
+	unsigned int bytes_frag_num = 0;
+	for (; f != NULL; f = f->fr_next) {
+		if (f->frag_has_hardcode) {
+			// bytes_frag_num += f->hardcode_size;
+			bytes_frag_num++;
+		}
+		if (f->frag_has_checked) {
+			continue;
+		}
+
+		// statistics
+		symbolS *tsym = f->frag_symbol;
+		if (!tsym) {
+			if (S_IS_CF_SYMBOL (tsym) && f->frag_has_hardcode && f->fr_flags.insn_frag) {
+				const char* sym_name = fiy_test_symbol (tsym);
+				if (f->begin_bytes) {
+					direct_code_num++;
+					// as_datascope (_("| direct_code_num | frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+					// 				sym_name, f->fr_address, f->frag_index);
+				} else {
+					// as_datascope (_("| fall_through_num1 | frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+					// 				sym_name, f->fr_address, f->frag_index);
+					fall_through_num++;
+				}
+			}
+			if (S_IS_MA_SYMBOL (tsym) && f->frag_has_hardcode && !f->fr_flags.insn_frag) {
+				const char* sym_name = fiy_test_symbol (tsym);
+				// as_datascope (_("| direct_data_num | frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+				// 					sym_name, f->fr_address, f->frag_index);
+				direct_data_num++;
+			}
+		} else {
+			if (f->frag_has_hardcode && f->fr_flags.insn_frag) {
+				// as_datascope (_("| fall_through_num2 | frag_name: null, frag_address: 0x%lx, frag_size: 0, frag_index: %lu"),
+				// 					f->fr_address, f->frag_index);
+				fall_through_num++;
+			}
+		}
+	}
+	write_meteheader_for_test (total_hardcoded_bytes, bytes_frag_num, direct_code_num, direct_data_num, fall_through_num);
+
+	f = info->frchainP->frch_root;
+	unsigned int offset = 0;
+	for (; f != NULL; f = f->fr_next) {
+		// 最后一个frag一定不是嵌入数据frag，因为subseg_finish会做最终的align
+		if (f->fr_next == NULL) {
+			break;
+		}
+
+		// 在主流架构上(除了mips)都定义了宏md_do_align，.align指令的填充类别都是rs_align_code
+		// 其他情况下为rs_align / rs_align_test
+		if (f->fr_flags.align_frag == 1) {
+			continue;
+		}
+
+		if (!f->fr_flags.insn_frag) {
+			offset = f->fr_fix;
+			symbolS *sym = f->frag_symbol;
+			
+			// 由于嵌入数据都是由.byte, .word, .quad等指令引入，当嵌入数据体积很大时，可能
+			// 会分成若干个frag，这种情况是允许存在的，我们在统计数据时只做简单的累加就好
+			if (offset > 0 && !S_IS_CF_SYMBOL (sym)) {
+				if (f->fr_flags.anchor_frag) {
+					gas_assert (sym);
+					gas_assert (f->frag_anchor);
+					const char* anchor_name = fiy_test_symbol (f->frag_anchor);
+					as_datascope (_("frag_name: %s, frag_address: 0x%lx, frag_size: 0, frag_index: %lu, is_anchor: true"),
+									anchor_name, f->fr_address, f->frag_index);
+
+					// 发射一条重定位条目
+					gas_assert (now_seg == xom_test_section);
+					segT seg_tmp = now_seg;
+					fragS *frag_tmp = frag_now;
+					// 确保symbol关联到当前frag
+					// 此操作会将symbol指向f的fr_fix末尾，我们假设数据段必然是fix的，即fr_var == 0这种假设绝大多数情况下成立
+					// gas_assert (f->fr_fix == 0);
+					// gas_assert (f->fr_var == 0);
+					now_seg = text_section;
+					frag_now = f;
+					symbolS *tmp_data_symbol = symbol_temp_new (now_seg, frag_now, f->fr_fix);
+					now_seg = seg_tmp;
+					frag_now = frag_tmp;
+
+					expressionS exp;
+					exp.X_op = O_symbol;
+					exp.X_add_symbol = tmp_data_symbol;
+					exp.X_add_number = 0 - f->fr_fix;
+					emit_expr (&exp, 8);
+
+					metedataTS data;
+					data.frag_index = f->frag_index;
+					data.frag_size = 0;
+					// data.frag_address = f->fr_address;
+					data.fr_flags = f->fr_flags;
+
+					gas_assert (anchor_name);
+					unsigned int sym_size = strlen(anchor_name) + 1;
+					data.symbol_size = sym_size;
+
+					write_metedata_for_test (&data, anchor_name);
+				}
+				if (sym) {
+					const char* sym_name = fiy_test_symbol (sym);
+					as_datascope (_("frag_name: %s, frag_address: 0x%lx, frag_size: 0x%lx, frag_index: %lu"),
+									sym_name, f->fr_address, offset, f->frag_index);
+
+					gas_assert (now_seg == xom_test_section);
+					segT seg_tmp = now_seg;
+					fragS *frag_tmp = frag_now;
+					// 确保symbol关联到当前frag
+					// 此操作会将symbol指向f的fr_fix末尾，我们假设数据段必然是fix的，即fr_var == 0这种假设绝大多数情况下成立
+					// gas_assert (f->fr_fix == 0);
+					// gas_assert (f->fr_var == 0);
+					now_seg = text_section;
+					frag_now = f;
+					symbolS *tmp_data_symbol = symbol_temp_new (now_seg, frag_now, f->fr_fix);
+					now_seg = seg_tmp;
+					frag_now = frag_tmp;
+
+					expressionS exp;
+					exp.X_op = O_symbol;
+					exp.X_add_symbol = tmp_data_symbol;
+					exp.X_add_number = 0 - f->fr_fix;
+					emit_expr (&exp, 8);
+
+					metedataTS data;
+					data.frag_index = f->frag_index;
+					data.frag_size = offset;
+					// data.frag_address = f->fr_address;
+					data.fr_flags = f->fr_flags;
+
+					gas_assert (sym_name);
+					unsigned int sym_size = strlen(sym_name) + 1;
+					data.symbol_size = sym_size;
+
+					write_metedata_for_test (&data, sym_name);
+				} else {
+					as_datascope (_("frag_name: null, frag_address: 0x%lx, frag_size: 0x%lx, frag_index: %lu"),
+									f->fr_address, offset, f->frag_index);
+
+					gas_assert (now_seg == xom_test_section);
+					segT seg_tmp = now_seg;
+					fragS *frag_tmp = frag_now;
+					// 确保symbol关联到当前frag
+					// 此操作会将symbol指向f的fr_fix末尾，我们假设数据段必然是fix的，即fr_var == 0这种假设绝大多数情况下成立
+					// gas_assert (f->fr_fix == 0);
+					// gas_assert (f->fr_var == 0);
+					now_seg = text_section;
+					frag_now = f;
+					symbolS *tmp_data_symbol = symbol_temp_new (now_seg, frag_now, f->fr_fix);
+					now_seg = seg_tmp;
+					frag_now = frag_tmp;
+
+					expressionS exp;
+					exp.X_op = O_symbol;
+					exp.X_add_symbol = tmp_data_symbol;
+					exp.X_add_number = 0 - f->fr_fix;
+					emit_expr (&exp, 8);
+
+					metedataTS data;
+					data.frag_index = f->frag_index;
+					data.frag_size = offset;
+					// data.frag_address = f->fr_address;
+					data.fr_flags = f->fr_flags;
+
+					const char* sym_name = "null";
+					unsigned int sym_size = strlen(sym_name) + 1;
+					data.symbol_size = sym_size;
+
+					write_metedata_for_test (&data, sym_name);
+				}
+			}
+		}
+	}
+
+	subsegs_finish_section (xom_test_section);
+	relax_segment (seg_info (xom_test_section)->frchainP->frch_root, xom_test_section, 0);
+  	size_seg (stdoutput, xom_test_section, NULL);
+}
+
+// fiytosky, add 更新frag信息
+static void split_text_frags (void) {
+	// xom_data_section_init ();
+	as_datascope (_("Split data begining"));
+	segment_info_type *text_seginfo = seg_info(text_section);
+	segment_info_type *xom_seginfo = seg_info(xom_data_section);
+
+	if (!text_seginfo || !text_seginfo->frchainP) return;
+
+	frchainS *text_chain = text_seginfo->frchainP;
+	frchainS *xom_chain = xom_seginfo->frchainP;
+
+	gas_assert (xom_chain);
+	// if (!xom_chain) {
+	// 	xom_chain = (frchainS *) obstack_alloc(&notes, sizeof(frchainS));
+    //     xom_chain->frch_root = NULL;
+    //     xom_chain->frch_last = NULL;
+    //     xom_seginfo->frchainP = xom_chain;
+	// }
+
+	fragS *prev_frag = NULL;
+    fragS *curr_frag = text_chain->frch_root;
+
+	// 遍历frag链表
+	unsigned int offset = 0;
+	bool is_split_once = false;
+	while (curr_frag != NULL) {
+		fragS *next_frag = curr_frag->fr_next;
+		// subseg_finish会为text段frag链的末尾添加一个用于对齐的frag，因此最后一个frag可以直接跳过
+		if (next_frag == NULL) {
+			// as_datascope (_("frag_name: good, frag_index: %lu, Last Frag"),
+			// 						curr_frag->frag_index);
+			break;
+		}
+
+		bool need_split = false;
+
+		offset = curr_frag->fr_fix;
+		symbolS *sym = curr_frag->frag_symbol;
+
+		// 将对齐属性同样迁移到.xom_data段中
+		if (curr_frag->fr_flags.align_frag == 1) {
+			offset = next_frag->fr_fix;
+			sym = next_frag->frag_symbol;
+			if (next_frag != NULL && !next_frag->fr_flags.insn_frag && !next_frag->fr_flags.align_frag) {
+				if (offset > 0 && !S_IS_CF_SYMBOL (sym)) {
+					need_split = true;
+				}
+			}
+
+			if (need_split) {
+				fragS *next_frag2 = next_frag->fr_next;
+				if (prev_frag) {
+					prev_frag->fr_next = next_frag2;
+				} else {
+					text_chain->frch_root = next_frag2;
+				}
+				// if (text_chain->frch_last == next_frag) {
+				// 	text_chain->frch_last = next_frag->fr_next;
+				// }
+				gas_assert (text_chain->frch_last != next_frag);
+
+				next_frag->fr_next = NULL;
+				if (xom_chain->frch_last) {
+					xom_chain->frch_last->fr_next = curr_frag;
+				} else {
+					xom_chain->frch_root = curr_frag;
+				}
+				xom_chain->frch_last = next_frag;
+
+				if (sym) {
+					S_SET_SEGMENT(sym, xom_data_section);
+					as_datascope (_("frag_name: %s, frag_index: %lu, frag_size: 0x%lx, DO Split Align"),
+										fiy_test_symbol (sym), curr_frag->frag_index, curr_frag->fr_fix);
+					as_datascope (_("frag_name: %s, frag_index: %lu, frag_size: 0x%lx, DO Split DATA"),
+										fiy_test_symbol (sym), next_frag->frag_index, next_frag->fr_fix);
+				} else {
+					as_datascope (_("frag_name: %s, frag_index: %lu, frag_size: 0x%lx, DO Split Align"),
+										"null", curr_frag->frag_index, curr_frag->fr_fix);
+					as_datascope (_("frag_name: %s, frag_index: %lu, frag_size: 0x%lx, DO Split DATA"),
+										"null", next_frag->frag_index, next_frag->fr_fix);
+				}
+				curr_frag = next_frag2;
+			} else {
+				prev_frag = curr_frag;
+				curr_frag = next_frag;
+			}
+			// curr_frag = next_frag;
+			continue;
+		}
+
+		if (!curr_frag->fr_flags.insn_frag) {
+			if (offset && !S_IS_CF_SYMBOL (sym)) {
+				if (curr_frag->fr_flags.anchor_frag) {
+					// 锚点frag不占大小，但是会做占位符
+					gas_assert (sym);
+					gas_assert (curr_frag->frag_anchor);
+
+					const char* anchor_name = fiy_test_symbol (curr_frag->frag_anchor);
+					as_datascope (_("frag_name: %s, frag_index: %lu, is_anchor: true, Split_target: YES"),
+									anchor_name, curr_frag->frag_index);
+
+					need_split = true;
+				}
+				if (sym) {
+					const char* sym_name = fiy_test_symbol (sym);
+					as_datascope (_("frag_name: %s, frag_index: %lu, Split_target: YES"),
+									sym_name, curr_frag->frag_index);
+					need_split = true;
+				} else {
+					as_datascope (_("frag_name: %s, frag_index: %lu, Split_target: YES"),
+									"null", curr_frag->frag_index);
+					need_split = true;
+				}
+			}
+		}
+
+		if (need_split) {
+			if (prev_frag) {
+                prev_frag->fr_next = next_frag;
+            } else {
+                text_chain->frch_root = next_frag;
+            }
+            if (text_chain->frch_last == curr_frag) {
+                text_chain->frch_last = prev_frag ? prev_frag : next_frag;
+            }
+
+			curr_frag->fr_next = NULL;
+			if (xom_chain->frch_last) {
+                xom_chain->frch_last->fr_next = curr_frag;
+            } else {
+                xom_chain->frch_root = curr_frag;
+            }
+            xom_chain->frch_last = curr_frag;
+
+			if (sym) {
+				S_SET_SEGMENT(sym, xom_data_section);
+				as_datascope (_("frag_name: %s, frag_index: %lu, frag_size: 0x%lx, DO Split"),
+									fiy_test_symbol (sym), curr_frag->frag_index, curr_frag->fr_fix);
+			} else {
+				as_datascope (_("frag_name: %s, frag_index: %lu, frag_size: 0x%lx, DO Split"),
+									"null", curr_frag->frag_index, curr_frag->fr_fix);
+			}
+			curr_frag = next_frag;
+		} else {
+			prev_frag = curr_frag;
+			curr_frag = next_frag;
+		}
+	}
+
+	// 分离完毕，给xom_data结尾
+	if (xom_chain->frch_last->fr_type == rs_align_code) {
+		fragS *fragStmp = frag_now;
+	
+		frag_now = frag_alloc (&xom_chain->frch_obstack, 0);
+		frag_now->frag_index = text_chain->frch_last->frag_index + 1;
+		xom_chain->frch_last->fr_next = frag_now;
+		xom_chain->frch_last = frag_now;
+		frag_wane (frag_now);
+		frag_now->fr_fix = 0;
+      	know (frag_now->fr_next == NULL);
+
+		frag_now = fragStmp;
+	}
+
+	// 更新符号重定位表项
+	fixS *fixP;
+	for (fixP = text_seginfo->fix_root; fixP != NULL; fixP = fixP->fx_next) {
+        if (fixP->fx_addsy != NULL && S_GET_SEGMENT(fixP->fx_addsy) == xom_data_section) {
+            /* 1. 强制设为 PC 相对寻址 */
+            fixP->fx_pcrel = 1;
+            /* 2. 告诉汇编器：不要在本地解析，留给链接器处理 */
+            fixP->fx_done = 0; 
+            /* 3. 强制使用 32 位重定位类型 (针对 x86-64) */
+            fixP->fx_r_type = BFD_RELOC_32_PCREL;
+
+			as_datascope (_("fixS for symbol %s"), fiy_test_symbol (fixP->fx_addsy));
+        }
+    }
+}
+
+static dump_text_frags (int i) {
+	if (i == 0) {
+		as_datascope (_("========================== Text fargs info before relax =========================="));
+	} else {
+		as_datascope (_("========================== Text fargs info after relax =========================="));
+	}
+	segment_info_type *info;
+	info = seg_info (text_section);
+	fragS *f = NULL;
+	f = info->frchainP->frch_root;
+
+	text_frag_index = 0;
+	unsigned int offset = 0;
+	for (; f != NULL; f = f->fr_next) {
+		// if (f->fr_next == NULL) {
+		// 	break;
+		// }
+
+		symbolS *sym = f->frag_symbol;
+		if (sym) {
+			const char* sym_name = fiy_test_symbol (sym);
+			as_datascope (_("frag_name: %s, frag_index: %lu, frag_address: %lx"), sym_name, f->frag_index, f->fr_address);
+		} else {
+			as_datascope (_("frag_name: %s, frag_index: %lu, frag_address: %lx"), "null", f->frag_index, f->fr_address);
+		}
+	}
+}
+
 /* Write the object file.  */
 
 void
@@ -2422,6 +2896,27 @@ write_object_file (void)
     fix_data_label_info ();
   }
 
+  // fiytosky, add debug
+//   if (fiy_dsplit) {
+// 	bfd_map_over_sections (stdoutput, debug_section, (char *) 0);
+//   }
+
+//   if (fiy_dcollect) {
+// 	dump_text_frags (0);
+//   }
+
+  if (fiy_dcollect) {
+	parse_symbols ();
+  }
+
+  if (fiy_dcollect) {
+	parse_frags_for_test ();
+  }
+
+  if (fiy_dsplit) {
+	split_text_frags ();
+  }
+
   rsi.pass = 0;
   while (1)
     {
@@ -2460,6 +2955,11 @@ write_object_file (void)
      information.  These ports can set
      TC_FINALIZE_SYMS_BEFORE_SIZE_SEG to 0.  */
   finalize_syms = TC_FINALIZE_SYMS_BEFORE_SIZE_SEG;
+
+//   if (fiy_dcollect) {
+// 	dump_text_frags (1);
+//   }
+
 
   bfd_map_over_sections (stdoutput, size_seg, (char *) 0);
 
@@ -2796,16 +3296,19 @@ write_object_file (void)
       if ((stdoutput->flags & BFD_COMPRESS) != 0)
 	bfd_map_over_sections (stdoutput, compress_debug, (char *) 0);
     }
-  
+
   // fiytosky, add. 获取.text段中frag信息
 	if (fiy_dcollect) {
+		// dump_text_frags (1);
 		const char *filename;
 		unsigned int line_number = 0;
 		filename = as_where_top (&line_number);
 		if (filename) {
 			as_warn (_("Current file: %s"), filename);
 		}
-		parse_frags ();
+		// parse_frags ();
+
+		// parse_frags_for_test ();
 	}
   
   bfd_map_over_sections (stdoutput, write_contents, (char *) 0);

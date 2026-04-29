@@ -136,6 +136,8 @@ struct local_symbol
 
   // fiytosky, add 
   bool call_flow_symbol; /* 该符号是否为控制流转移指令e.g. j<cc>, call访问的符号 */
+  bool memory_access_symbol; /* 该符号是否为访存指令访存的符号 */
+  bool bind_bytes; /* 符号绑定硬编码字节 */
 };
 
 /* The information we keep for a symbol.  The symbol table holds
@@ -170,6 +172,8 @@ struct symbol
 
   // fiytosky, add 
   bool call_flow_symbol; /* 该符号是否为控制流转移指令e.g. j<cc>, call访问的符号 */
+  bool memory_access_symbol; /* 该符号是否为访存指令访存的符号 */
+  bool bind_bytes; /* 符号绑定硬编码字节 */
 };
 
 /* Extra fields to make up a full symbol.  */
@@ -688,6 +692,10 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
       frag_now->fr_flags.anchor_frag = 1;
       frag_now->frag_anchor = frag_now->frag_symbol;
     }
+  }
+
+  if (fiy_dcollect && now_seg == text_section) {
+    flash_symbol_point = false;
   }
 
   if ((symbolP = symbol_find (sym_name)) != 0)
@@ -1445,6 +1453,32 @@ void S_SET_CF_SYMBOL (symbolS* s) {
     s->call_flow_symbol = true;
 }
 
+bool S_IS_MA_SYMBOL (symbolS* s) {
+  if (!s)
+    return false;
+  return s->memory_access_symbol;
+}
+
+void S_SET_MA_SYMBOL (symbolS* s) {
+  if (s)
+    s->memory_access_symbol = true;
+}
+
+void S_SET_BIND_INFO (symbolS* s, bool bind) {
+  if (s->flags.local_symbol)
+    {
+      ((struct local_symbol *) s)->bind_bytes = bind;
+      return;
+    }
+  s->bind_bytes = bind;
+}
+
+bool S_GET_BIND_INFO (symbolS* s) {
+  if (s->flags.local_symbol)
+    return ((struct local_symbol *) s)->bind_bytes;
+  return s->bind_bytes;
+}
+
 // fiytosky, add
 const char*
 fiy_test_symbol (symbolS *symp) {
@@ -2050,6 +2084,41 @@ resolve_local_symbol (void **slot, void *arg ATTRIBUTE_UNUSED)
 
   return 1;
 }
+
+// fiytosky, add
+// static void
+// check_local_symbol_bind (symbolS *symp)
+// {
+//   if (symp->flags.local_symbol) {
+//     const char *name = S_GET_NAME (symp);
+//     fragS *f = symbol_get_frag (symp);
+//     bool bind = S_GET_BIND_INFO (symp);
+//     as_datascope (_("symbol_name: %s"),
+// 									name);
+
+//     if (bind) {
+//       direct_code_num++;
+//       as_datascope (_("| direct_code_num1 | symbol_name: %s, frag_index: %lu"),
+//                 name, f->frag_index);
+//     }
+//   }
+// }
+
+// static void
+// check_local_symbol (void **slot, void *arg ATTRIBUTE_UNUSED)
+// {
+//   symbol_entry_t *entry = *((symbol_entry_t **) slot);
+//   if (entry->sy.flags.local_symbol)
+//     check_local_symbol_bind (&entry->sy);
+
+//   // return 1;
+// }
+
+// void
+// check_local_symbol_bind_info (void)
+// {
+//   htab_traverse_noresize (sy_hash, check_local_symbol, NULL);
+// }
 
 /* Resolve all local symbols.  */
 

@@ -9,6 +9,8 @@
 #include <stdio.h>
 
 segT xom_section;
+segT xom_test_section;
+segT xom_data_section;
 
 symbolS *text_cur_symbol;
 const char* cur_func_name;
@@ -19,14 +21,34 @@ bool is_finish_subseg;
 unsigned long long text_frag_index;
 meteheaderS mete_header;
 
+unsigned int total_hardcoded_bytes; 
+unsigned int cur_frag_hardcoded_bytes; 
+bool fall_through_insn; 
+unsigned int direct_code_num; 
+unsigned int direct_data_num; 
+unsigned int fall_through_num; 
+unsigned int idirect_code_num; 
+unsigned int idirect_data_num; 
+bool flash_symbol_point;
+
 void xom_section_init () {
-	as_warn ("Create .xom section");
+	// as_warn ("Create .xom section");
 	xom_section = subseg_new (XOM_SECTION_NAME, 0);
 	bfd_set_section_flags (xom_section, SEC_HAS_CONTENTS);
 
 	subseg_set (xom_section, 0);
-	as_warn (_("Initialize xom section"));
+	// as_warn (_("Initialize xom section"));
 }
+
+void xom_test_section_init () {
+	// as_warn ("Create .xomtwo section");
+	xom_test_section = subseg_new (XOM_TEST_SECTION_NAME, 0);
+	bfd_set_section_flags (xom_test_section, SEC_HAS_CONTENTS);
+
+	subseg_set (xom_test_section, 0);
+	// as_warn (_("Initialize xomtwo section"));
+}
+
 
 static void
 log_file_init () {
@@ -49,6 +71,16 @@ void datascope_init () {
 	is_finish_subseg = false;
 	text_frag_index = 0;
 
+	total_hardcoded_bytes = 0;
+	fall_through_insn = false;
+	cur_frag_hardcoded_bytes = 0; 
+	direct_code_num = 0; 
+	direct_data_num = 0; 
+	fall_through_num = 0; 
+	idirect_code_num = 0; 
+	idirect_data_num = 0; 
+	flash_symbol_point = false;
+
 	// 当前-g参数会导致subseg_new(XOM_SECTION)失败，当开启fiy--dcollect时
 	// 禁止-g参数生效-->设置debug_type和dwarf_level为默认值
 	///FIXME: fix this bug
@@ -70,8 +102,14 @@ void update_frag_symbol (void) {
 	frag_now->frag_symbol = text_cur_symbol;
 }
 
+symbolS * get_cur_symbol (void) {
+	return text_cur_symbol;
+}
+
 // metedata
-void write_meteheader () {
+void write_meteheader (unsigned int total_hardcoded_bytes, unsigned int bytes_frag_num, 
+                       unsigned int direct_code_num, unsigned int direct_data_num, 
+					   unsigned int fall_through_num) {
 	gas_assert (now_seg == xom_section);
 
 	strcpy (mete_header.magic, "xom");
@@ -84,12 +122,62 @@ void write_meteheader () {
 	unsigned int size = strlen (filename) + 1;
 	mete_header.name_size = size;
 
-	size_t total_size = sizeof(meteheaderS) + size;
+	size_t uint_size = sizeof(unsigned int);
+	size_t total_size = sizeof(meteheaderS) + size + uint_size * 5;
 	char *p = frag_more (total_size);
 
 	memcpy (p, &mete_header, sizeof(meteheaderS));
 	memcpy (p + sizeof(meteheaderS), filename, size);
-	as_warn (_("meteheader filename: %s, write_size: %u"), filename, total_size);
+	memcpy (p + sizeof(meteheaderS) + size, &total_hardcoded_bytes, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size, &bytes_frag_num, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size * 2, &direct_code_num, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size * 3, &direct_data_num, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size * 4, &fall_through_num, uint_size);
+	// as_warn (_("meteheader filename: %s, write_size: %u"), filename, total_size);
+	as_datascope (_("meteheader filename: %s, write_size: %u, total_hardcoded_bytes: %u, bytes_frag_num: %u, direct_code_num: %u, direct_data_num: %u, fall_through_num: %u"),
+					 filename, total_size, total_hardcoded_bytes, bytes_frag_num, direct_code_num, direct_data_num, fall_through_num);
+}
+
+void write_meteheader_for_test (unsigned int total_hardcoded_bytes, unsigned int bytes_frag_num, 
+                       unsigned int direct_code_num, unsigned int direct_data_num, 
+					   unsigned int fall_through_num) {
+	gas_assert (now_seg == xom_test_section);
+
+	strcpy (mete_header.magic, "xom");
+	unsigned int x;
+	const char *filename;
+	filename = as_where (&x);
+	if (!filename) {
+		filename = "unkown_name";
+	}
+	unsigned int size = strlen (filename) + 1;
+	mete_header.name_size = size;
+
+	size_t uint_size = sizeof(unsigned int);
+	size_t total_size = sizeof(meteheaderS) + size + uint_size * 5;
+	char *p = frag_more (total_size);
+
+	memcpy (p, &mete_header, sizeof(meteheaderS));
+	memcpy (p + sizeof(meteheaderS), filename, size);
+	memcpy (p + sizeof(meteheaderS) + size, &total_hardcoded_bytes, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size, &bytes_frag_num, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size * 2, &direct_code_num, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size * 3, &direct_data_num, uint_size);
+	memcpy (p + sizeof(meteheaderS) + size + uint_size * 4, &fall_through_num, uint_size);
+	// as_warn (_("meteheader filename: %s, write_size: %u"), filename, total_size);
+	as_datascope (_("meteheader filename: %s, write_size: %u, total_hardcoded_bytes: %u, bytes_frag_num: %u, direct_code_num: %u, direct_data_num: %u, fall_through_num: %u"),
+					 filename, total_size, total_hardcoded_bytes, bytes_frag_num, direct_code_num, direct_data_num, fall_through_num);
+}
+
+void write_metedata_for_test (metedataTS *data, const char *syn_name) {
+	gas_assert (now_seg == xom_test_section);
+	
+	size_t total_size = sizeof(metedataTS) + data->symbol_size;
+	char *p = frag_more (total_size);
+
+	memcpy (p, data, sizeof(metedataTS));
+	memcpy (p + sizeof(metedataTS), syn_name, data->symbol_size);
+	// as_warn (_("write frag_info, frag_index: %u, write_size: %u"), data->frag_index, total_size);
 }
 
 void write_metedata (metedataS *data, const char *syn_name) {
@@ -100,7 +188,7 @@ void write_metedata (metedataS *data, const char *syn_name) {
 
 	memcpy (p, data, sizeof(metedataS));
 	memcpy (p + sizeof(metedataS), syn_name, data->symbol_size);
-	as_warn (_("write frag_info, frag_index: %u, write_size: %u"), data->frag_index, total_size);
+	// as_warn (_("write frag_info, frag_index: %u, write_size: %u"), data->frag_index, total_size);
 }
 
 // log
@@ -179,4 +267,9 @@ void as_datascope (const char *format, ...) {
 	}
 }
 
-
+// fiytosky, add for split data
+void debug_section (bfd *abfd ATTRIBUTE_UNUSED,
+			        segT section,
+			        void *xxx ATTRIBUTE_UNUSED) {
+    printf("sec_name: %s\n", section->name);
+}

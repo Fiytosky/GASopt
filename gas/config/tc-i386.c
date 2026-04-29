@@ -39,6 +39,8 @@
 #include <limits.h>
 
 #include "bbInfoHandle.h" /* fiytosky, add */
+#include "datascope.h" /* fiytosky, add */
+
 
 #ifndef INFER_ADDR_PREFIX
 #define INFER_ADDR_PREFIX 1
@@ -12219,11 +12221,32 @@ collect_labels (void)
 ///@func update_symbol_status，更新控制流转移指令中的符号
 static void
 update_symbol_status (void) {
+  if (i.tm.base_opcode == 0x8d) {
+    // as_datascope (_("update symbol for insn `%s'"),
+		//       insn_name (&i.tm));
+    return; // lea
+  }
+
   if (i.tm.opcode_modifier.jump == JUMP ||
       i.tm.opcode_modifier.jump == JUMP_BYTE ||
       i.tm.opcode_modifier.jump == JUMP_DWORD ||
-      i.tm.opcode_modifier.jump == JUMP_INTERSEGMENT) {
+      i.tm.opcode_modifier.jump == JUMP_INTERSEGMENT ||
+      i.mem_operands > 0) {
     unsigned int n;
+    // as_datascope (_("update symbol for insn `%s'"),
+		//       insn_name (&i.tm));
+
+    unsigned int is_mem = 0;
+    unsigned int is_branch = 0;
+    if (i.tm.opcode_modifier.jump == JUMP ||
+        i.tm.opcode_modifier.jump == JUMP_BYTE ||
+        i.tm.opcode_modifier.jump == JUMP_DWORD ||
+        i.tm.opcode_modifier.jump == JUMP_INTERSEGMENT) {
+      is_branch = 1; 
+    }
+    if (i.mem_operands > 0 && !is_branch) {
+      is_mem = 1;
+    }
 
     for (n = 0; n < i.operands; n++) {
       if (operand_type_check (i.types[n], disp)) {
@@ -12231,8 +12254,17 @@ update_symbol_status (void) {
         if (op_type == O_symbol || op_type == O_add || op_type == O_subtract) {
           symbolS *symp = i.op[n].disps->X_add_symbol;
           symbolS *symp2 = i.op[n].disps->X_op_symbol;
-          S_SET_CF_SYMBOL (symp);
-          S_SET_CF_SYMBOL (symp2);
+          if (!is_mem) {
+            // if (symp) { as_datascope (_("CF |update symbol for `%s'"), S_GET_NAME (symp));}
+            // if (symp2) { as_datascope (_("CF |update symbol for `%s'"), S_GET_NAME (symp2));}
+            S_SET_CF_SYMBOL (symp);
+            S_SET_CF_SYMBOL (symp2);
+          } else {
+            // if (symp) { as_datascope (_("MA | update symbol for `%s'"), S_GET_NAME (symp));}
+            // if (symp2) { as_datascope (_("MA | update symbol for `%s'"), S_GET_NAME (symp2));}
+            S_SET_MA_SYMBOL (symp);
+            S_SET_MA_SYMBOL (symp2);
+          }
         }
       }
 
@@ -12241,8 +12273,17 @@ update_symbol_status (void) {
         if (op_type == O_symbol || op_type == O_add || op_type == O_subtract) {
           symbolS *symp = i.op[n].imms->X_add_symbol;
           symbolS *symp2 = i.op[n].imms->X_op_symbol;
-          S_SET_CF_SYMBOL (symp);
-          S_SET_CF_SYMBOL (symp2);
+          if (!is_mem) {
+            // if (symp) { as_datascope (_("CF |update symbol for `%s'"), S_GET_NAME (symp));}
+            // if (symp2) { as_datascope (_("CF |update symbol for `%s'"), S_GET_NAME (symp2));}
+            S_SET_CF_SYMBOL (symp);
+            S_SET_CF_SYMBOL (symp2);
+          } else {
+            // if (symp) { as_datascope (_("MA | update symbol for `%s'"), S_GET_NAME (symp));}
+            // if (symp2) { as_datascope (_("MA | update symbol for `%s'"), S_GET_NAME (symp2));}
+            S_SET_MA_SYMBOL (symp);
+            S_SET_MA_SYMBOL (symp2);
+          }
         }
       }
 
@@ -12481,6 +12522,8 @@ output_insn (const struct last_insn *last_insn)
   // fiytosky, add
   if (fiy_dcollect) {
     update_symbol_status ();
+    frag_now->frag_has_insn = true;
+    flash_symbol_point = true;
   }
 
   /* Output jumps.  */

@@ -523,7 +523,8 @@ parse_args (int * pargc, char *** pargv)
       // fiytosky, add 
       OPTION_FIY_DLABEL, /* 打印嵌入数据标签 */
       OPTION_FIY_SOK, /* x86-sok的方法 */
-      OPTION_FIY_DCOLLECT /* 我的方法 */
+      OPTION_FIY_DCOLLECT, /* 收集嵌入数据信息 */
+      OPTION_FIY_DSPLIT /* 分离嵌入数据 */
     };
 
   static const struct option std_longopts[] =
@@ -612,6 +613,7 @@ parse_args (int * pargc, char *** pargv)
     ,{"fiy-dlabel", no_argument, NULL, OPTION_FIY_DLABEL} /* fiytosky, add */
     ,{"fiy-dsok", no_argument, NULL, OPTION_FIY_SOK} /* fiytosky, add */
     ,{"fiy-dcollect", no_argument, NULL, OPTION_FIY_DCOLLECT} /* fiytosky, add */
+    ,{"fiy-dsplit", no_argument, NULL, OPTION_FIY_DSPLIT} /* fiytosky, add */
   };
 
   /* Construct the option lists from the standard list and the target
@@ -1001,6 +1003,10 @@ This program has absolutely no warranty.\n"));
 
   case OPTION_FIY_DCOLLECT:
     fiy_dcollect = true;
+    break;
+  
+  case OPTION_FIY_DSPLIT:
+    fiy_dsplit = true;
     break;
 
 #if defined OBJ_ELF || defined OBJ_MAYBE_ELF
@@ -1412,6 +1418,16 @@ gas_init (void)
 				       | SEC_DATA));
   bfd_set_section_flags (bss_section, applicable & SEC_ALLOC);
   seg_info (bss_section)->bss = 1;
+
+  // fiytosky, add
+  if (fiy_dsplit) {
+    xom_data_section = subseg_new (XOM_DATA_SECTION_NAME, 0);
+    bfd_set_section_flags (xom_data_section,
+			 applicable & (SEC_ALLOC | SEC_LOAD | SEC_RELOC
+				       | SEC_DATA | SEC_READONLY));
+    record_alignment(xom_data_section, 8); /* 64字节对齐 */
+  }
+
 #endif
   bfd_std_section_init (BFD_ABS_SECTION_NAME);
   bfd_std_section_init (BFD_UND_SECTION_NAME);

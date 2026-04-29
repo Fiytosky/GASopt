@@ -151,6 +151,12 @@ struct frag {
   symbolS *frag_anchor; /* anchor symbol */
   unsigned int frag_index;
 
+  bool frag_has_hardcode; /* frag中是否包含硬编码字节 */
+  bool frag_has_insn; /* frag中是否已写入指令 */
+  bool begin_bytes; /* 硬编码字节位于frag起始 */
+  bool frag_has_checked;
+  unsigned int hardcode_size;
+
   /* Data begins here.  */
   char fr_literal[1];
 };

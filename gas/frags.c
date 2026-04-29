@@ -238,12 +238,14 @@ frag_new (size_t old_frags_var_max_size
 
   frag_now->fr_next = NULL;
 
-  // fiytosky, add 其他额外添加的变量还没有初始化
+  // fiytosky, add 
   frag_now->last_bb = NULL;
   frag_now->bb_offset = 0;
   frag_now->last_bb_added_size = 0;
   // frag_now->fr_flags = (struct frag_flags){0};
   frag_now->frag_symbol = NULL;
+  frag_now->frag_has_hardcode = false;
+  frag_now->hardcode_size = 0;
 }
 
 /* Start a new frag unless we have n more chars of room in the current frag.

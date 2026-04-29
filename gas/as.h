@@ -335,7 +335,9 @@ COMMON bool fiy_dlabel;
 
 COMMON bool fiy_dsok; /* sok方法 */
 
-COMMON bool fiy_dcollect; /* 我的方法 */
+COMMON bool fiy_dcollect; /* 我的方法 收集嵌入数据信息 */
+
+COMMON bool fiy_dsplit; /* 我的方法 分离嵌入数据信息 */
 
 enum synth_cfi_type
 {

@@ -4367,6 +4367,11 @@ cons_worker (int nbytes,	/* 1=.byte, 2=.word, 4=.long.  */
 	    as_fatal (_("rva without symbol"));
 	}
       emit_expr_with_reloc (&exp, (unsigned int) nbytes, ret);
+      // fiytosky, add
+      if (fiy_dcollect && now_seg == text_section) {
+        total_hardcoded_bytes += nbytes;
+        // cur_frag_hardcoded_bytes += nbytes;
+      }
 #ifdef TC_CONS_FIX_CHECK
       TC_CONS_FIX_CHECK (&exp, nbytes, *cur_fix);
 #endif
@@ -4404,6 +4409,23 @@ void
 cons (int size)
 {
   cons_worker (size, 0);
+  // fiytosky, add
+  if (fiy_dcollect && now_seg == text_section) {
+    if (!frag_now->frag_has_insn) {
+      frag_now->begin_bytes = true;
+    }
+    frag_now->frag_has_hardcode = true;
+    frag_now->hardcode_size++;
+    // cur_frag_hardcoded_bytes = 0;
+    if (!flash_symbol_point) {
+      symbolS *sym = get_cur_symbol ();
+      if (!sym) {return;}
+      const char *name = S_GET_NAME (sym);
+			// as_datascope (_("cons symbol_name: %s"),
+			// 						name);
+      S_SET_BIND_INFO (sym, true);
+    }
+  }
 }
 
 void
