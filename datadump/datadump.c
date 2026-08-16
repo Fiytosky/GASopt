@@ -36,7 +36,7 @@ struct meta_fixed {
 
 const char MAGIC_SIG[4] = {'x', 'o', 'm', '\0'};
 
-void parse_xomtwo(const uint8_t *data, uint64_t data_len, uint64_t text_size, const char *log_file_path) {
+void parse_xom(const uint8_t *data, uint64_t data_len, uint64_t text_size, const char *log_file_path) {
     uint64_t offset = 0;
     uint32_t entry_count = 0;
     uint64_t embeded_data_size = 0;
@@ -54,7 +54,7 @@ void parse_xomtwo(const uint8_t *data, uint64_t data_len, uint64_t text_size, co
         return;
     }
 
-    fprintf(log, "=== 🚀 开始解析 .xomtwo 段 (总大小: %lu 字节) ===\n\n", data_len);
+    fprintf(log, "=== 🚀 开始解析 .xom 段 (总大小: %lu 字节) ===\n\n", data_len);
 
     while (offset < data_len) {
         if (data_len - offset < 4) {
@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (target_section_data) {
-        parse_xomtwo(target_section_data, target_section_size, total_exec_size, ldlog_path);
+        parse_xom(target_section_data, target_section_size, total_exec_size, ldlog_path);
     } else {
         fprintf(stderr, "[!] Section '%s' not found in %s\n", section_name, elf_path);
     }
