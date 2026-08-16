@@ -125,7 +125,7 @@ We enforce XoM protection on the program via Intel MPK, and compile and execute 
 
 ```bash
 # 1. using sha1 as an example
-MPK_XOM_SCOPE=main MPK_XOM_VERBOSE=0 /root/xom/test/tools/speccpu_test/xom_test/xom_run ./apps/openssl speed sha1
+MPK_XOM_SCOPE=main MPK_XOM_VERBOSE=0 /Workplace/binutils-2.44/xom-tools/xom_run ./apps/openssl speed sha1
 
 # expected output
 compiler: /AsmXoM/gcc-15.2.0/build/bin/gcc -fPIC -pthread -m64 -Wa,--noexecstack -O3 -Wa,--keep-locals -Wa,--fiy-dsplit -fPIC -DOPENSSL_USE_NODELETE -DL_ENDIAN -DOPENSSL_PIC -DOPENSSL_BUILDING_OPENSSL -DNDEBUG
