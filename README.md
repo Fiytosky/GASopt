@@ -128,7 +128,7 @@ We enforce XoM protection on the program via Intel MPK, and compile and execute 
 MPK_XOM_SCOPE=main MPK_XOM_VERBOSE=0 /Workplace/binutils-2.44/xom-tools/xom_run ./apps/openssl speed sha1
 
 # expected output
-compiler: /AsmXoM/gcc-15.2.0/build/bin/gcc -fPIC -pthread -m64 -Wa,--noexecstack -O3 -Wa,--keep-locals -Wa,--fiy-dsplit -fPIC -DOPENSSL_USE_NODELETE -DL_ENDIAN -DOPENSSL_PIC -DOPENSSL_BUILDING_OPENSSL -DNDEBUG
+compiler: /AsmXoM/gcc-15.2.0/build/bin/gcc -fPIC -pthread -m64 -Wa,--noexecstack -O3 -Wa,--keep-locals -Wa,--dsplit -fPIC -DOPENSSL_USE_NODELETE -DL_ENDIAN -DOPENSSL_PIC -DOPENSSL_BUILDING_OPENSSL -DNDEBUG
 CPUINFO: OPENSSL_ia32cap=0x7ffef3ffffebffff:0x40417f5ef3bfb7ef
 The 'numbers' are in 1000s of bytes per second processed.
 type             16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
